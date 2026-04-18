@@ -1,0 +1,12 @@
+
+path: ../datasets/Insulator-Defect Detection
+train: train/images
+val: val/images
+test: test/images
+
+nc: 3
+
+names:
+  0: broken
+  1: insulator
+  2: pollution-flashover

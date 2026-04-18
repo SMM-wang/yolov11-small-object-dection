@@ -1,0 +1,25 @@
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: /3240410021/ultralytics-main/aaa/datasets/AI-TOD
+train: train/images
+val: val/images #
+test: test/images
+# Classes
+names:
+  0: airplane
+  1: bridge
+  2: storage-tank
+  3: ship
+  4: swimming-pool
+  5: vehicle
+  6: person
+  7: wind-mill
+
+#0: airplane (飞机)
+#1: bridge (桥梁)
+#2: storage-tank (储罐)
+#3: ship (船只)
+#4: swimming-pool (游泳池)
+#5: vehicle (车辆)
+#6: person (人员)
+#7: wind-mill (风车)

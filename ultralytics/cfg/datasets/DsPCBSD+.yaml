@@ -1,0 +1,37 @@
+
+#nc: 9
+#names: ['0', '1', '2', '3', '4', '5', '6', '7', '8']
+#
+#  0: SH
+#  1: SP
+#  2: SC
+#  3: OP
+#  4: MB
+#  5: HB
+#  6: BMFO
+
+path: ../datasets/DsPCBSD+ # dataset root dir
+train: train/images
+val: valid/images #
+test: test/images
+
+# Classes
+names:
+  0: BMFO
+  1: CFO
+  2: CS
+  3: HB
+  4: MB
+  5: OP
+  6: SC
+  7: SH
+  8: SP
+#短路 (Short) - SH
+#毛刺 (Spur) - SP
+#杂散铜 (Spurious copper) - SC
+#开路 (Open) - OP
+#鼠咬 (Mouse bite) - MB
+#孔崩 (Hole breakout) - HB
+#导电划痕 (Conductor scratch) - CS
+#导电异物 (Conductor foreign object) - CFO
+#基板异物 (Base material foreign object) - BMFO

@@ -1,0 +1,15 @@
+path: ../datasets/PKU-Market-PCB # dataset root dir
+train: train/images
+val: val/images #
+test: test/images
+
+
+nc: 6
+# Classes
+names:
+  0: missing_hole
+  1: mouse_bite
+  2: open_circuit
+  3: short
+  4: spur
+  5: spurious_copper
