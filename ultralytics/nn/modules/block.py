@@ -2195,6 +2195,11 @@ class SACSP(nn.Module):
         # 1. 路由器生成像素级形状权重
         w_h, w_v = self.shape_router(x2)
         
+        # 保存第一组结果到 txt
+        # with open('w_h_w_v_output.txt', 'a') as f:
+        #     f.write(f"w_h: {w_h.cpu().detach().numpy().tolist()}\n")
+        #     f.write(f"w_v: {w_v.cpu().detach().numpy().tolist()}\n\n")
+        
         # 2. 动态自适应融合：用权重动态调节横向和纵向卷积的输出
         s2 = self.shape_bn_act2(w_h * self.shape_h2(x2) + w_v * self.shape_v2(x2))
         s3 = self.shape_bn_act3(w_h * self.shape_h3(x2) + w_v * self.shape_v3(x2))

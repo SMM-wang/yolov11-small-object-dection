@@ -53,11 +53,11 @@ def get_next_exp_folder(base_path):
 # model = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\train11\weights\best.pt")
 # model = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\visdrone2019e结果\IOU\NWF-IoU\weights\best.pt")
 # model = YOLO(r"./runs/detect/train3/weights/best.pt")
-model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/MSALCSPv2/weights/best.pt")
+model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/SACSP/weights/best.pt")
 # 设置源路径 - 可改为图片路径、视频路径或文件夹路径
 # source = "./aaa/test_picture/drone7.png"  # 图片示例
 # source = r"./test_picture"
-source = r"./aaa/test_picture/drone6.jpg"
+source = r"./aaa/test_picture/0000308_02201_d_0000316.jpg"
 # source = '../che.avi'  # 视频示例
 # source = "测试图片"  # 文件夹示例
 # source = "0"  # 摄像头示例

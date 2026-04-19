@@ -1,3 +1,13 @@
+import os
+import sys
+
+# 添加项目根目录到 sys.path
+project_root = r'c:\workspace\python\yolov11-small-object-dection'
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import warnings
+
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -10,9 +20,11 @@ np.random.seed(0)
 import matplotlib.pyplot as plt
 from tqdm import trange
 from PIL import Image
-from ultralytics.nn.tasks import attempt_load_weights
+from ultralytics.nn.tasks import load_checkpoint
+from ultralytics.utils.ops import xywh2xyxy
+from ultralytics.utils.nms import non_max_suppression
 from ultralytics.utils.torch_utils import intersect_dicts
-from ultralytics.utils.ops import xywh2xyxy, non_max_suppression
+from ultralytics.utils.nms import non_max_suppression
 from pytorch_grad_cam import GradCAMPlusPlus, GradCAM, XGradCAM, EigenCAM, HiResCAM, LayerCAM, RandomCAM, EigenGradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image, scale_cam_image
 from pytorch_grad_cam.activations_and_gradients import ActivationsAndGradients
@@ -132,9 +144,8 @@ class yolov8_target(torch.nn.Module):
 class yolov11_heatmap:
     def __init__(self, weight, device, method, layer, backward_type, conf_threshold, ratio, show_box, renormalize):
         device = torch.device(device)
-        ckpt = torch.load(weight)
+        model, ckpt = load_checkpoint(weight, device=device)
         model_names = ckpt['model'].names
-        model = attempt_load_weights(weight, device)
         model.info()
         for p in model.parameters():
             p.requires_grad_(True)
@@ -254,7 +265,7 @@ class yolov11_heatmap:
                     os.path.join(new_save_dir, f"{name}_{grad_name}.{end_name}")  # 新保存路径
                 )
         else:
-            name = img_path.rsplit('.')[0]
+            name = os.path.basename(img_path).rsplit('.')[0]
             self.process(
                 img_path,
                 os.path.join(new_save_dir, f"{name}_{grad_name}.png")
@@ -291,13 +302,13 @@ def get_params():
         # 'EigenGradCAM'
     ]
     # 推荐的层（基于你的模型结构）
-    # layers = [16, 19, 22]
-    layers = [14]
+    layers = [16, 19, 22]
+    # layers = [16]
     # layers = [ 12, 13, 14]
     for grad_name in grad_list:
         params = {
             # 'weight': '../runs/detect/visdrone2019结果/YOLO11n/weights/best.pt',  # 训练好的权重路径
-            'weight': '../runs/detect/visdrone2019结果/YOLO11MSALCSP   1K chunk 3k(1,2,3)CBS3+CFPT（128   64,128,256）/weights/best.pt',
+            'weight': 'runs/detect/visdrone2019结果/特征提取模块/SACSP/weights/best.pt',
             'device': 'cuda:0',  # cpu或者cuda:0
             'method': grad_name,
             'layer': layers,  # 计算梯度的层, 指定层的索引
@@ -314,4 +325,4 @@ if __name__ == '__main__':
     for each in get_params():
         model = yolov11_heatmap(**each)
         # model参数：1.图片路径 2.保存根目录 3.方法名
-        model(r'航拍3.jpg', '../runs/detect/梯度热力图/YOLO11msalcsp', each['method'])
+        model(r'aaa/test_picture/0000308_02201_d_0000316.jpg', 'runs/detect/梯度热力图/YOLO11sacsp', each['method'])
