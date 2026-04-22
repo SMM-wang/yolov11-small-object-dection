@@ -17,18 +17,21 @@ class SFM(nn.Module):
     def __init__(self, channels):
         super(SFM, self).__init__()
         # 定义 HWD 下采样模块 (用于 2x 下采样)
-        self.hwd = HWD(channels, channels)
+        # self.hwd = HWD(channels, channels)
         # 论文提到在neck之前将通道固定为112 (或其他值) 以方便融合
         # 这里的 conv-3x3 用于融合相加后的特征 [cite: 88, 72]
-        self.fusion_conv = nn.Sequential(
-            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1,groups= channels),
-            nn.BatchNorm2d(channels),
-            nn.SiLU(),
-            nn.Conv2d(channels, channels, kernel_size=1, stride=1),
-            nn.BatchNorm2d(channels),
-            nn.SiLU(),
+        # self.fusion_conv = nn.Sequential(
+        #     nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1,groups= channels),
+        #     nn.BatchNorm2d(channels),
+        #     nn.SiLU(),
+        #     nn.Conv2d(channels, channels, kernel_size=1, stride=1),
+        #     nn.BatchNorm2d(channels),
+        #     nn.SiLU(),
 
-        )
+        # )
+
+        self.fusion_conv = Conv(channels, channels, k=3, s=1, p=1)
+
         # self.fusion_conv = C3k2(channels, channels,  shortcut=False)
 
     def forward(self, inputs, target_size=None):
@@ -97,7 +100,8 @@ class SFM(nn.Module):
                 elif in_h > out_h:
                     # HWD 只能处理严格的 2 倍下采样
                     if in_h == out_h * 2 and in_w == out_w * 2:
-                        x_resized = self.hwd(x)
+                        # x_resized = self.hwd(x)
+                        x_resized = nn.MaxPool2d(kernel_size=2, stride=2)(x)
                     else:
                         # 如果是 4倍 (如 P3->P5) 或其他比例，回退到 MaxPool
                         # MaxPool 比 Bilinear 更好，因为不会模糊掉小目标的高亮像素

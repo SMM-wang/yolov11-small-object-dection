@@ -68,8 +68,9 @@ if __name__ == '__main__':
     # visdrone2019
 
 
-    # model1 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
-    model1 = YOLO("ultralytics/cfg/models/11/yolo11MSAL.yaml")   
+    model1 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
+    # model1 = YOLO("ultralytics/cfg/models/11/yolo11MSAL.yaml")   
+    # model1 = YOLO("ultralytics/cfg/models/11/yolo11SFPN.yaml")   
     # model1 = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\train24\weights\best.pt")
     # model1.add_callback("on_train_batch_end", clear_cuda_memory_batch)
     # model1.add_callback("on_train_epoch_end", clear_cuda_memory)

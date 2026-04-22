@@ -209,7 +209,7 @@ def bbox_iou(
 
 import torch
 
-def sn_alignment_loss(pred_bboxes, target_bboxes, weight=None, eps=1e-7):
+def sn_alignment_loss(pred_bboxes, target_bboxes, weight=None, eps=1e-4):
     """
     SNA-IoU (Scale-Normalized Alignment Loss)
     专为 VisDrone 等微小目标设计的非缝合统一 Loss。
@@ -240,7 +240,10 @@ def sn_alignment_loss(pred_bboxes, target_bboxes, weight=None, eps=1e-7):
     scale_sq = w2 ** 2 + h2 ** 2 + eps 
     
     # 指数化距离惩罚，使其在 [0, 1] 之间平滑，避免极端值导致梯度爆炸
-    distance_penalty = 1.0 - torch.exp(-(rho_sq / scale_sq))
+    # distance_penalty = 1.0 - torch.exp(-(rho_sq / scale_sq))
+    # 【安全防线 2】: 限制指数内部的上限，防止偏移过大时引发溢出
+    penalty_term = (rho_sq / scale_sq).clamp(max=20.0)
+    distance_penalty = 1.0 - torch.exp(-penalty_term)    
 
     # 基础对齐分数 (Alignment Score)：兼顾重叠度与绝对中心距离
     alignment_score = iou - distance_penalty # 范围 [-1, 1]
@@ -256,7 +259,8 @@ def sn_alignment_loss(pred_bboxes, target_bboxes, weight=None, eps=1e-7):
         mean_error = error.mean().clamp(min=eps)
         
         # 计算相对错误度相对均值的偏离比例
-        beta = error / mean_error
+        # beta = error / mean_error
+        beta = (error / mean_error).clamp(max=10.0)
         
         # 使用平滑的高斯非单调函数 (代替 WIoU 复杂的幂函数，且无需两个超参数 alpha/delta)
         # 逻辑：

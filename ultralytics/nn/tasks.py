@@ -80,7 +80,7 @@ from ultralytics.nn.modules.block import (MSALCSP,SACSP,My_Index)
 
 from ultralytics.nn.modules.CFPT import CFPT
 from ultralytics.nn.modules.SFPN import SFPN,SFM
-from ultralytics.nn.modules.SFPN_5 import SFPN_5
+
 from ultralytics.nn.modules.ASFF import ASFF
 
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, YAML, colorstr, emojis
@@ -1689,7 +1689,8 @@ def parse_model(d, ch, verbose=True):
             # 定义 SFPN 的输出通道 (通常与 Backbone 对应的层级保持一致，或者全统一)
             # 这里我们设定输出恢复到 [256, 512, 1024] 以匹配 Detect 头的预期
             # 也可以简单地设为 args[2] 如果你在 yaml 里传了
-            out_channels = [64, 128, 256]
+            # out_channels = [64, 128, 256]
+            out_channels = [32, 64, 128] #160*160
 
             # 更新 args: [base_channels, out_channels, unified_channel, num_sfbs]
             # 注意: yaml 里 args 只有 [256, 3], 这里我们把自动获取的拼凑进去
@@ -1711,19 +1712,6 @@ def parse_model(d, ch, verbose=True):
 
             # 更新 args，只保留缩放后的通道数
             args = [c2]
-
-        elif m is SFPN_5:
-
-            out_channels = [64, 128, 256]
-
-            # 更新 args: [base_channels, out_channels, unified_channel, num_sfbs]
-            # 注意: yaml 里 args 只有 [256, 3], 这里我们把自动获取的拼凑进去
-            args = [out_channels, *args]
-
-            # 更新当前层(SFPN)的输出通道数，Detect 头会用到这个信息
-            # 因为 SFPN 返回的是列表 [P3, P4, P5]，所以 ch[i] 应该记录这三个通道
-            # 但为了兼容下面的逻辑，我们通常记录一个列表，Detect 会处理它
-            c2 = out_channels
 
         elif m is ASFF:
             c1 = [ch[x] for x in f]  # 获取来源层的通道列表 [256, 512, 1024]

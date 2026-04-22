@@ -3,9 +3,10 @@ import sys
 import os
 
 from ultralytics import YOLO,RTDETR
-# model = YOLO(r"./runs/detect/visdrone2019结果/IOU/CIOU/weights/best.pt")
+model = YOLO(r"runs/detect/visdrone2019结果/IOU/SNA-IOU/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/MSALCSPv3/weights/best.pt")
-model = YOLO(r"runs/detect/train2/weights/best.pt")
+# model = YOLO(r"runs/detect/visdrone2019结果/NECK/base/weights/best.pt")
+# model = YOLO(r"runs/detect/train7/weights/best.pt")
 # model = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\visdrone2019e结果\IOU\NWF-IoU\weights\best.pt")
 
 # model = YOLO(r"../runs/detect/visdrone2019e结果/NECK/YOLO11MSALCSP+SFPN(nearest,HWD)/weights/best.pt")

@@ -66,7 +66,6 @@ from .block import (
 )
 from .CFPT import CFPT
 from .SFPN import SFPN,SFM
-from .SFPN_5 import SFPN_5
 from .ASFF import ASFF
 from .conv import (
     CBAM,
@@ -208,6 +207,6 @@ __all__ = (
     "HWD",
     "SFPN",
     "SFM",
-    "SFPN_5",
+
     "ASFF"
 )
