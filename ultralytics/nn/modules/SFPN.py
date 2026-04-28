@@ -29,6 +29,9 @@ class SFM(nn.Module):
         #     nn.SiLU(),
 
         # )
+        
+        self.downsample_conv = Conv(channels, channels, k=3, s=2, p=1)
+        
 
         self.fusion_conv = Conv(channels, channels, k=3, s=1, p=1)
 
@@ -101,7 +104,8 @@ class SFM(nn.Module):
                     # HWD 只能处理严格的 2 倍下采样
                     if in_h == out_h * 2 and in_w == out_w * 2:
                         # x_resized = self.hwd(x)
-                        x_resized = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+                        # x_resized = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+                        x_resized = self.downsample_conv(x)
                     else:
                         # 如果是 4倍 (如 P3->P5) 或其他比例，回退到 MaxPool
                         # MaxPool 比 Bilinear 更好，因为不会模糊掉小目标的高亮像素

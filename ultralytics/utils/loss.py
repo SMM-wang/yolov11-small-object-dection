@@ -114,7 +114,6 @@ class BboxLoss(nn.Module):
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
         self.iou_type = iou_type
-
     def forward(
         self,
         pred_dist: torch.Tensor,
@@ -148,7 +147,7 @@ class BboxLoss(nn.Module):
         # loss_item = sn_alignment_loss(
         #     pred_bboxes[fg_mask], 
         #     target_bboxes[fg_mask], 
-        #     weight=weight
+        #     weight=weight,
         # )
 
         # # 2. 归一化输出
