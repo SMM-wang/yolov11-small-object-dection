@@ -15,27 +15,10 @@ class SFM(nn.Module):
     """
 
     def __init__(self, channels):
-        super(SFM, self).__init__()
-        # 定义 HWD 下采样模块 (用于 2x 下采样)
-        # self.hwd = HWD(channels, channels)
-        # 论文提到在neck之前将通道固定为112 (或其他值) 以方便融合
-        # 这里的 conv-3x3 用于融合相加后的特征 [cite: 88, 72]
-        # self.fusion_conv = nn.Sequential(
-        #     nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1,groups= channels),
-        #     nn.BatchNorm2d(channels),
-        #     nn.SiLU(),
-        #     nn.Conv2d(channels, channels, kernel_size=1, stride=1),
-        #     nn.BatchNorm2d(channels),
-        #     nn.SiLU(),
-
-        # )
-        
+        super(SFM, self).__init__()    
         self.downsample_conv = Conv(channels, channels, k=3, s=2, p=1)
         
-
         self.fusion_conv = Conv(channels, channels, k=3, s=1, p=1)
-
-        # self.fusion_conv = C3k2(channels, channels,  shortcut=False)
 
     def forward(self, inputs, target_size=None):
         """
@@ -51,42 +34,10 @@ class SFM(nn.Module):
 
         # 1. 确定目标尺寸 (Target Size)
         if target_size is None:
-            # # 过滤出所有非空的输入 (valid inputs)
-            # valid_inputs = [x for x in inputs if x is not None]
-            #
-            # if not valid_inputs:
-            #     raise ValueError("All inputs are None and no target_size provided.")
-            #
-            # # --- 修改逻辑开始 ---
-            # # 找到空间尺寸最小的输入 (根据 H*W 面积判断)
-            # smallest_input = min(valid_inputs, key=lambda x: x.shape[2] * x.shape[3])
-            # min_h, min_w = smallest_input.shape[2:]
-            #
-            # # 计算 1.5 倍并取整
-            # target_size = (int(min_h * 1.5), int(min_w * 1.5))
             target_size = inputs[0].shape[2:]
 
         fused_feature = None
-        valid_inputs_count = 0
 
-        # 2. 处理每个输入 (Linear Scaling & Element-wise Addition)
-        # for x in inputs:
-        #     if x is not None:
-        #         # 线性缩放 (Linear Scaling): Upsample 或 Downsample
-        #         # 论文提到 "linearly scaling inputs" (Fig 3 显示 linear upsample 1.5x 和 linear downsample 0.75x)
-        #         if x.shape[2:] != target_size:
-        #             # 使用双线性插值进行缩放 (即论文中的 linear scaling)
-        #             x_resized = F.interpolate(x, size=target_size, mode='bilinear', align_corners=False)
-        #         else:
-        #             x_resized = x
-        #
-        #         # 逐像素相加 (Pixel-by-pixel addition)
-        #         if fused_feature is None:
-        #             fused_feature = x_resized
-        #         else:
-        #             fused_feature = fused_feature + x_resized
-        #
-        #         valid_inputs_count += 1
         for x in inputs:
             if x is not None:
                 in_h, in_w = x.shape[2], x.shape[3]
@@ -99,20 +50,14 @@ class SFM(nn.Module):
                     x_resized = x
 
                 # 情况 B: 输入比目标大 -> 下采样 (Downsample)
-                # 优先使用 HWD (保留小目标细节)
                 elif in_h > out_h:
-                    # HWD 只能处理严格的 2 倍下采样
                     if in_h == out_h * 2 and in_w == out_w * 2:
-                        # x_resized = self.hwd(x)
-                        # x_resized = nn.MaxPool2d(kernel_size=2, stride=2)(x)
                         x_resized = self.downsample_conv(x)
                     else:
                         # 如果是 4倍 (如 P3->P5) 或其他比例，回退到 MaxPool
-                        # MaxPool 比 Bilinear 更好，因为不会模糊掉小目标的高亮像素
                         x_resized = F.adaptive_max_pool2d(x, output_size=target_size)
 
                 # 情况 C: 输入比目标小 -> 上采样 (Upsample)
-                # 使用 Bilinear (平滑过渡)
                 else:
                     # x_resized = F.interpolate(x, size=target_size, mode='bilinear', align_corners=False)
                     x_resized = F.interpolate(x, size=target_size, mode='nearest')
