@@ -30,15 +30,15 @@ head:
   # ================= Top-Down Pathway =================
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 11: P5 upsample
   - [[-1, 6], 1, Concat, [1]] # 12: cat P5_up + P4
-  - [-1, 1, SACSP, [512,0.5]] # 13: fused P4
+  - [-1, 2, C3k2, [512, False]] # 13: fused P4
 
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 14: P4 upsample
   - [[-1, 4], 1, Concat, [1]] # 15: cat P4_up + P3
-  - [-1, 1, SACSP, [256, 0.5]] # 16: fused P3
+  - [-1, 2, C3k2, [256, False]] # 16: fused P3
 
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 17: P3 upsample
   - [[-1, 2], 1, Concat, [1]] # 18: cat P3_up + P2
-  - [-1, 1, SACSP, [128, 0.5]] # 19: fused P2 -> (Output 1: 160x160)
+  - [-1, 2, C3k2, [128, False]] # 19: fused P2 -> (Output 1: 160x160)
 
 
   - [[19, 16, 13], 1, SFPN, [64, 3]] # 20

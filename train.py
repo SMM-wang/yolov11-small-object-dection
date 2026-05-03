@@ -66,7 +66,7 @@ settings["tensorboard"]=True
 
 if __name__ == '__main__':
     # visdrone2019
-    model1 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
+    model1 = YOLO("ultralytics/cfg/models/11/yolo11SACSP+SFPN.yaml")
     # model1 = YOLO("ultralytics/cfg/models/11/yolo11MSAL.yaml")   
     # model1 = YOLO("ultralytics/cfg/models/11/yolo11SFPN.yaml")   
     # model1 = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\train24\weights\best.pt")
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         # lr0=0.007,  # 设置初始学习率为0.007
         lr0=0.01,
         lrf=0.01,
-        box_iou="CIoU",
+        box_iou="SNAIoU",
         warmup_epochs=3,
         cache = True,
         #project="C:/workspace/python/ultralytics-main/runs/detect",
