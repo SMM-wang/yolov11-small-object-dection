@@ -91,7 +91,7 @@ if __name__ == '__main__':
         # lr0=0.007,  # 设置初始学习率为0.007
         lr0=0.01,
         lrf=0.01,
-        box_iou="SNAIoU",
+        box_iou="CIoU",
         warmup_epochs=3,
         cache = True,
         #project="C:/workspace/python/ultralytics-main/runs/detect",
