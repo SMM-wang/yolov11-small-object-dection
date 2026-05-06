@@ -1,12 +1,13 @@
-
-import sys
 import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 from ultralytics import YOLO,RTDETR
 # model = YOLO(r"runs/detect/visdrone2019结果/IOU/SNA-IOU/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/MSALCSPv3/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/NECK/SFPN160/weights/best.pt")
-model = YOLO(r"runs/detect/train/weights/best.pt")
+# model = YOLO(r"runs/detect/best_taylor_pruned_r0.50.pt")
+model = YOLO(r"runs/detect/train9/weights/best.pt")
+
 # model = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\visdrone2019e结果\IOU\NWF-IoU\weights\best.pt")
 
 # model = YOLO(r"../runs/detect/visdrone2019e结果/NECK/YOLO11MSALCSP+SFPN(nearest,HWD)/weights/best.pt")

@@ -1,10 +1,9 @@
-import sys
 import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 from ultralytics import YOLO
 import torch
 
-import torch
 import gc
 import os
 

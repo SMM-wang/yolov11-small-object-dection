@@ -1690,7 +1690,8 @@ def parse_model(d, ch, verbose=True):
             # 这里我们设定输出恢复到 [256, 512, 1024] 以匹配 Detect 头的预期
             # 也可以简单地设为 args[2] 如果你在 yaml 里传了
             # out_channels = [64, 128, 256]
-            out_channels = [32, 64, 128] #160*160
+            # out_channels = [32, 64, 128] #160*160
+            out_channels = base_channels
 
             # 更新 args: [base_channels, out_channels, unified_channel, num_sfbs]
             # 注意: yaml 里 args 只有 [256, 3], 这里我们把自动获取的拼凑进去
