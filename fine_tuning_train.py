@@ -13,12 +13,22 @@ def custom_get_model(self, cfg=None, weights=None, verbose=True):
     if isinstance(weights, nn.Module):
         print("🚀 成功拦截！正在处理剪枝模型的设备与参数适配...")
         
+        # ------------------ [新增核心修复：防 fuse 崩溃] ------------------
+        # 在模型被真正用于训练和评估前，强制将底层属性与张量真实形状对齐
+        print("🔧 正在同步剪枝模型的通道属性...")
+        for m in weights.modules():
+            if isinstance(m, nn.Conv2d):
+                m.out_channels = m.weight.shape[0]
+                m.in_channels = m.weight.shape[1] * m.groups
+            elif isinstance(m, nn.BatchNorm2d):
+                m.num_features = m.weight.shape[0]
+        # ------------------------------------------------------------------
+        
         # A. 强制设备同步：将模型移动到 Trainer 指定的设备 (如 cuda:0)
         weights.to(self.device)
         
         # B. 核心修复：参数对象适配
         # 将 Trainer 已经封装好的 self.args 直接赋值给 weights.args
-        # self.args 是一个支持 .box 访问的对象，能完美解决 AttributeError
         weights.args = self.args 
         
         # C. 重新初始化损失函数：确保 Loss 内部的张量和模型在同一设备
@@ -37,12 +47,12 @@ DetectionTrainer.get_model = custom_get_model
 
 
 if __name__ == '__main__':
-    # 使用你最初始的剪枝权重即可
-    model1 = YOLO(r"runs/detect/best(2)_taylor_pruned_r0.50.pt")
+    # 注意路径：检查一下之前路径里的多余字母 r"rruns/..."，改回正常路径
+    model1 = YOLO(r"runs/detect/prun/best_taylor_pruned_r0.50.pt")
     
     model1.train(
         data="my_VisDrone_e.yaml",
-        epochs=1,
+        epochs=1,   # 建议先跑 1 个 epoch，确保最后的 fuse 和 val 顺利通过
         batch=4,
         imgsz=640,
         device=0,

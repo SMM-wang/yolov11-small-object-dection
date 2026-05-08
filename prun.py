@@ -16,7 +16,7 @@ from ultralytics.cfg import get_cfg
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL = Path("runs/detect/best(2).pt")
+DEFAULT_MODEL = Path("runs/detect/prun/best1.pt")
 DEFAULT_DATA = Path("ultralytics/cfg/datasets/my_VisDrone.yaml")
 
 
@@ -25,16 +25,22 @@ DEFAULT_DATA = Path("ultralytics/cfg/datasets/my_VisDrone.yaml")
 # branch fusion contracts.
 DEFAULT_IGNORE_KEYWORDS = (
     # "model.24",  # Detect head
-    "model.10",  # C2PSA block with fixed attention residual contracts
-    "model.13",  # C2f/Bottleneck split-concat block
-    "model.16",  # C2f/Bottleneck split-concat block
-    "model.19",  # C2f/Bottleneck split-concat block
-    # "attn",
+    # "model.10",  # C2PSA block with fixed attention residual contracts
+    # "model.13",  # C2f/Bottleneck split-concat block
+    # "model.16",  # C2f/Bottleneck split-concat block
+    # "model.19",  # C2f/Bottleneck split-concat block
+    "attn",
     # "cross_att",
     # "shape_router",
     # "shape_h",
     # "shape_v",
     # "sfbs",
+    "model.10.cv1.conv",
+    # "model.10.cv2.conv",
+    "model.10.m.0.attn.proj.conv",
+    "model.10.m.0.attn.qkv.conv",
+    "model.10.m.0.ffn.0.conv",
+    "model.10.m.0.ffn.1.conv",
 )
 
 
