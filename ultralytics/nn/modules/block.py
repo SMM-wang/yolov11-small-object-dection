@@ -293,36 +293,74 @@ class C2(nn.Module):
         return self.cv2(torch.cat((self.m(a), b), 1))
 
 
+# class C2f(nn.Module):
+#     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
+
+#     def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
+#         """Initialize a CSP bottleneck with 2 convolutions.
+
+#         Args:
+#             c1 (int): Input channels.
+#             c2 (int): Output channels.
+#             n (int): Number of Bottleneck blocks.
+#             shortcut (bool): Whether to use shortcut connections.
+#             g (int): Groups for convolutions.
+#             e (float): Expansion ratio.
+#         """
+#         super().__init__()
+#         self.c = int(c2 * e)  # hidden channels
+#         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+#         self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
+#         self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         """Forward pass through C2f layer."""
+#         y = list(self.cv1(x).chunk(2, 1))
+#         y.extend(m(y[-1]) for m in self.m)
+#         return self.cv2(torch.cat(y, 1))
+
+#     def forward_split(self, x: torch.Tensor) -> torch.Tensor:
+#         """Forward pass using split() instead of chunk()."""
+#         y = self.cv1(x).split((self.c, self.c), 1)
+#         y = [y[0], y[1]]
+#         y.extend(m(y[-1]) for m in self.m)
+#         return self.cv2(torch.cat(y, 1))
+
 class C2f(nn.Module):
-    """Faster Implementation of CSP Bottleneck with 2 convolutions."""
+    """Faster Implementation of CSP Bottleneck with 2 convolutions. Modified for Pruning."""
 
     def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
-        """Initialize a CSP bottleneck with 2 convolutions.
-
-        Args:
-            c1 (int): Input channels.
-            c2 (int): Output channels.
-            n (int): Number of Bottleneck blocks.
-            shortcut (bool): Whether to use shortcut connections.
-            g (int): Groups for convolutions.
-            e (float): Expansion ratio.
-        """
+        """Initialize a CSP bottleneck with 2 convolutions."""
         super().__init__()
         self.c = int(c2 * e)  # hidden channels
-        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        
+        # --- 核心修改 1：物理拆分大卷积为两个独立卷积 ---
+        # 原版: self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        self.cv1_left = Conv(c1, self.c, 1, 1)
+        self.cv1_right = Conv(c1, self.c, 1, 1)
+        # -----------------------------------------------
+        
         self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
         self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through C2f layer."""
-        y = list(self.cv1(x).chunk(2, 1))
+        # --- 核心修改 2：分别独立计算，彻底消除 chunk 或 split ---
+        y_left = self.cv1_left(x)
+        y_right = self.cv1_right(x)
+        
+        y = [y_left, y_right]
+        # -------------------------------------------------------
+        
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
 
     def forward_split(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass using split() instead of chunk()."""
-        y = self.cv1(x).split((self.c, self.c), 1)
-        y = [y[0], y[1]]
+        # 由于已经物理拆分，这个方法其实不再需要，但为了兼容性可以保留修改后的逻辑
+        y_left = self.cv1_left(x)
+        y_right = self.cv1_right(x)
+        y = [y_left, y_right]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
 
@@ -2121,13 +2159,19 @@ class SACSP(nn.Module):
         )
         
         # 1. 局部基础分支 (用于提供纯净的 Query)
+        # self.local_branch = nn.Sequential(
+        #     nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1, groups=mid_channels),
+        #     nn.BatchNorm2d(mid_channels),
+        #     nn.SiLU(),
+        #     nn.Conv2d(mid_channels, mid_channels, kernel_size=1, stride=1),
+        #     nn.BatchNorm2d(mid_channels),
+        #     nn.SiLU()
+        # )
+
         self.local_branch = nn.Sequential(
-            nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1, groups=mid_channels),
+            nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(mid_channels),
             nn.SiLU(),
-            nn.Conv2d(mid_channels, mid_channels, kernel_size=1, stride=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.SiLU()
         )
 
         scale_ch = mid_channels // 2

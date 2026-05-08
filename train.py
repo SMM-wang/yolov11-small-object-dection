@@ -76,7 +76,7 @@ if __name__ == '__main__':
     model1.train(
         data="my_VisDrone.yaml",
         # data="AI_TODe.yaml", 
-        epochs=1,
+        epochs=3,
         batch=8,
         # batch=8,
         imgsz=640,
