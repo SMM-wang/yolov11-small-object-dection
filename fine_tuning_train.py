@@ -38,12 +38,12 @@ DetectionTrainer.get_model = custom_get_model
 
 if __name__ == '__main__':
     # 使用你最初始的剪枝权重即可
-    model1 = YOLO(r"runs/detect/best_taylor_pruned_r0.50.pt")
+    model1 = YOLO(r"runs/detect/best(2)_taylor_pruned_r0.50.pt")
     
     model1.train(
-        data="my_VisDrone.yaml",
-        epochs=400,
-        batch=8,
+        data="my_VisDrone_e.yaml",
+        epochs=1,
+        batch=4,
         imgsz=640,
         device=0,
         workers=0,

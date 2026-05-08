@@ -16,7 +16,7 @@ from ultralytics.cfg import get_cfg
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL = Path("runs/detect/best.pt")
+DEFAULT_MODEL = Path("runs/detect/best(2).pt")
 DEFAULT_DATA = Path("ultralytics/cfg/datasets/my_VisDrone.yaml")
 
 
@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-layer-ratio", type=float, default=0.60, help="Max fraction removed from one conv.")
     parser.add_argument("--ignore", nargs="*", default=list(DEFAULT_IGNORE_KEYWORDS), help="Name keywords to skip.")
     parser.add_argument("--dry-run", action="store_true", help="Score channels and print plan without pruning.")
-    parser.add_argument("--overwrite", action="store_true", help="Allow replacing an existing output file.")
+    parser.add_argument("--overwrite", action="store_true", default=True, help="Allow replacing an existing output file.")
     return parser.parse_args()
 
 
