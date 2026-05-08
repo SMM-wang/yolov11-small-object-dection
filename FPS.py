@@ -7,7 +7,7 @@ from ultralytics import YOLO
 
 # 加载模型
 # model = YOLO(r"runs/detect/visdrone2019结果/IOU/SNAIOU/weights/best.pt")
-model = YOLO(r"runs/detect/best.onnx")
+model = YOLO(r"runs/detect/best.engine")
 # model = YOLO(r"runs/detect/visdrone2019结果/IOU/SNAIOU/weights/best.pt")
 imgsz = 640
 

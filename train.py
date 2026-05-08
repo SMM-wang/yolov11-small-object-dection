@@ -76,7 +76,7 @@ if __name__ == '__main__':
     model1.train(
         data="my_VisDrone.yaml",
         # data="AI_TODe.yaml", 
-        epochs=400,
+        epochs=1,
         batch=8,
         # batch=8,
         imgsz=640,
@@ -90,7 +90,7 @@ if __name__ == '__main__':
         # lr0=0.007,  # 设置初始学习率为0.007
         lr0=0.01,
         lrf=0.01,
-        box_iou="CIoU",
+        box_iou="SNAIoU",
         warmup_epochs=3,
         cache = True,
         #project="C:/workspace/python/ultralytics-main/runs/detect",
