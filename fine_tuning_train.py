@@ -52,7 +52,7 @@ if __name__ == '__main__':
         optimizer="SGD",
         lr0=0.005,
         lrf=0.01,
-        box_iou="CIoU",
+        box_iou="SNAIoU",
         warmup_epochs=0,
         cache=True,
     )

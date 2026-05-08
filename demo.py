@@ -18,7 +18,7 @@ from ultralytics import YOLO
 
 # ===================== 配置你的模型路径 =====================
 # 未剪枝模型
-model = YOLO(r"runs/detect/best.onnx")
+model = YOLO(r"runs/detect/best_prun.pt")
 # 剪枝模型（需要导出就替换这个路径）
 # model = YOLO(r"runs/detect/best_taylor_pruned_r0.50.pt")
 

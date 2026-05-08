@@ -50,12 +50,12 @@ def get_next_exp_folder(base_path):
 
 # 加载模型
 # model = YOLO(r"../runs/detect/visdrone2019e结果/NECK/YOLO11MSALCSP+ASFF/weights/best.pt")
-model = YOLO(r"runs/detect/visdrone2019结果/NECK/base/weights/best.pt")
+# model = YOLO(r"runs/detect/visdrone2019结果/NECK/base/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/ALL/weights/best.pt")
-# model = YOLO(r"./runs/detect/train/weights/best.pt")
+model = YOLO(r"./runs/detect/train/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/SACSP/weights/best.pt")
 # 设置源路径 - 可改为图片路径、视频路径或文件夹路径
-source = "./aaa/test_picture/夜晚.jpg"  # 图片示例
+source = "./aaa/test_picture/drone7.jpg"  # 图片示例
 # source = r"./test_picture"
 # source = r"./aaa/test_picture/0000308_02201_d_0000316.jpg"
 # source = '../che.avi'  # 视频示例
