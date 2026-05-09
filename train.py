@@ -66,9 +66,6 @@ settings["tensorboard"]=True
 if __name__ == '__main__':
     # visdrone2019
     model1 = YOLO("ultralytics/cfg/models/11/yolo11SACSP+SFPN.yaml")
-    # model1 = YOLO("ultralytics/cfg/models/11/yolo11MSAL.yaml")   
-    # model1 = YOLO("ultralytics/cfg/models/11/yolo11SFPN.yaml")   
-    # model1 = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\train24\weights\best.pt")
     # model1.add_callback("on_train_batch_end", clear_cuda_memory_batch)
     # model1.add_callback("on_train_epoch_end", clear_cuda_memory)
     # model1.add_callback("on_val_batch_end", clear_cuda_memory_val_batch)
@@ -76,7 +73,7 @@ if __name__ == '__main__':
     model1.train(
         data="my_VisDrone.yaml",
         # data="AI_TODe.yaml", 
-        epochs=3,
+        epochs=400,
         batch=8,
         # batch=8,
         imgsz=640,
@@ -96,7 +93,6 @@ if __name__ == '__main__':
         #project="C:/workspace/python/ultralytics-main/runs/detect",
         # resume=True,
     )
-   
 
     # model3 = YOLO("ultralytics/cfg/models/11/yolo11MSAL+SFPN.yaml")
     # model3.add_callback("on_train_epoch_end", clear_cuda_memory)
