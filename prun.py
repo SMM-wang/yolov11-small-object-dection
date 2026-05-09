@@ -16,7 +16,7 @@ from ultralytics.cfg import get_cfg
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL = Path("runs/detect/prun/best1.pt")
+DEFAULT_MODEL = Path("runs/detect/prun/yolov11n/weights/best.pt")
 DEFAULT_DATA = Path("ultralytics/cfg/datasets/my_VisDrone.yaml")
 
 
@@ -29,18 +29,15 @@ DEFAULT_IGNORE_KEYWORDS = (
     # "model.13",  # C2f/Bottleneck split-concat block
     # "model.16",  # C2f/Bottleneck split-concat block
     # "model.19",  # C2f/Bottleneck split-concat block
-    "attn",
+    # "attn",
     # "cross_att",
     # "shape_router",
     # "shape_h",
     # "shape_v",
     # "sfbs",
-    "model.10.cv1.conv",
-    # "model.10.cv2.conv",
-    "model.10.m.0.attn.proj.conv",
-    "model.10.m.0.attn.qkv.conv",
-    "model.10.m.0.ffn.0.conv",
-    "model.10.m.0.ffn.1.conv",
+# === C2PSA (model.10) 绝对保护黑名单 ===
+    "model.10.cv1_right",  # 只要名字带这个，通通不剪！(保护整个右路输入)
+    "model.10.m.",         # 只要名字带 "model.10.m."，通通不剪！(完美覆盖 m.0, m.1 以及里面的 qkv, proj, ffn)
 )
 
 
