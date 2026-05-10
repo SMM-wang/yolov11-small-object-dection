@@ -6,12 +6,6 @@ import torch.nn.functional as F
 from ultralytics.models.yolo.detect.train import DetectionTrainer
 
 
-class DistillationTrainer(DetectionTrainer):
-    def __init__(self, teacher_path, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.teacher_path = teacher_path
-        self.teacher_loaded = False
-
 # ==========================================
 # 1. 特征通道对齐模块 (Feature Adaptation)
 # ==========================================
@@ -25,6 +19,7 @@ class FeatureAdaptation(nn.Module):
     def forward(self, x):
         return self.bn(self.conv(x))
 
+
 # ==========================================
 # 2. 自定义蒸馏训练器 (继承官方 Trainer)
 # ==========================================
@@ -33,7 +28,6 @@ class DistillationTrainer(DetectionTrainer):
         super().__init__(*args, **kwargs)
         self.teacher_path = teacher_path
         self.teacher_loaded = False  # 懒加载标记
-
 
     def get_model(self, cfg=None, weights=None, verbose=True):
         print(f"\n[Distillation] 🛑 拦截官方重建逻辑，强制加载剪枝物理结构...")
@@ -112,44 +106,7 @@ class DistillationTrainer(DetectionTrainer):
         # 5. 为 1x1 对齐模块单独设置优化器
         self.adapt_optimizer = torch.optim.AdamW(self.adapt_modules.parameters(), lr=1e-3)
         self.mse_loss = nn.MSELoss()
-        self.temp = 4.0 # 蒸馏温度参数
-        
-        print("[Distillation] 初始化完成！通道映射关系：")
-        print(f"P3: {self.s_feats['P3'].shape[1]} -> {self.t_feats['P3'].shape[1]}")
-        print(f"P4: {self.s_feats['P4'].shape[1]} -> {self.t_feats['P4'].shape[1]}")
-        print(f"P5: {self.s_feats['P5'].shape[1]} -> {self.t_feats['P5'].shape[1]}\n")
-
-        def get_t_hook(name):
-            def hook(module, input, output): self.t_feats[name] = output
-            return hook
-
-        def get_s_hook(name):
-            def hook(module, input, output): self.s_feats[name] = output
-            return hook
-
-        # 3. 在网络关键节点挂载 Hook
-        # YOLO11 中：16层为P3(小目标), 19层为P4(中目标), 22层为P5(大目标), 23层为Detect头
-        target_layers = {'P3': 16, 'P4': 19, 'P5': 22, 'Head': 23}
-        for name, idx in target_layers.items():
-            self.teacher.model[idx].register_forward_hook(get_t_hook(name))
-            self.model.model[idx].register_forward_hook(get_s_hook(name))
-
-        # 4. 前向传播一次 Dummy Data，自动探测通道数并初始化 1x1 对齐卷积
-        dummy_img = torch.zeros((1, 3, self.args.imgsz, self.args.imgsz), device=self.device)
-        with torch.no_grad():
-            self.teacher(dummy_img)
-        self.model(dummy_img) # 学生模型前向
-
-        self.adapt_modules = nn.ModuleDict({
-            'P3': FeatureAdaptation(self.s_feats['P3'].shape[1], self.t_feats['P3'].shape[1]),
-            'P4': FeatureAdaptation(self.s_feats['P4'].shape[1], self.t_feats['P4'].shape[1]),
-            'P5': FeatureAdaptation(self.s_feats['P5'].shape[1], self.t_feats['P5'].shape[1])
-        }).to(self.device)
-
-        # 5. 为 1x1 对齐模块单独设置优化器
-        self.adapt_optimizer = torch.optim.AdamW(self.adapt_modules.parameters(), lr=1e-3)
-        self.mse_loss = nn.MSELoss()
-        self.temp = 4.0 # 蒸馏温度参数
+        self.temp = 2.0 # 蒸馏温度参数
         
         print("[Distillation] 初始化完成！通道映射关系：")
         print(f"P3: {self.s_feats['P3'].shape[1]} -> {self.t_feats['P3'].shape[1]}")
@@ -212,7 +169,7 @@ class DistillationTrainer(DetectionTrainer):
             # 损失权重超参数 (可根据训练情况微调)
             alpha_hard = 1.0
             alpha_feat = 3.0  # 特征蒸馏权重
-            alpha_kl = 1.5    # 软标签蒸馏权重
+            alpha_kl = 1.0    # 软标签蒸馏权重
             
             total_loss = alpha_hard * hard_loss + alpha_feat * feat_loss + alpha_kl * kl_loss
 
@@ -225,8 +182,6 @@ class DistillationTrainer(DetectionTrainer):
         return total_loss, loss_items
     
 
-
-
 # ==========================================
 # 3. 启动训练入口
 # ==========================================
@@ -235,9 +190,9 @@ if __name__ == "__main__":
     args = {
         'model': 'runs/detect/prun/yolov11n/weights/pruned.pt',   # 学生模型 (你剪枝后的模型)
         'data': 'ultralytics/cfg/datasets/my_VisDrone.yaml',      # 数据集配置文件
-        'epochs': 400,             # 设大一点没关系，我们用 patience 兜底
+        'epochs': 300,             # 设大一点没关系，我们用 patience 兜底
         'batch': 8,               # 批次大小
-         # 'patience': 50,            # 50 个 epoch mAP 不涨就自动停止
+        'patience': 50,            # 50 个 epoch mAP 不涨就自动停止
         'imgsz': 640,              # 图像尺寸
         'device': 0,               # 蒸馏过程中含有 Hook，强烈建议使用单卡(0)进行训练
         'workers': 2,
@@ -251,6 +206,7 @@ if __name__ == "__main__":
         'cache': True,
         'project': 'prun',
         'name': 'prun_distill',    # 本次运行的文件名
+        'conf': 0.05,        # 【过滤垃圾框】你上一个配置忘了加这个！把验证阈值从 0.001 提高到 0.05，大幅减轻 NMS 压力。
     }
 
     # 教师模型路径 (剪枝前的最优模型)

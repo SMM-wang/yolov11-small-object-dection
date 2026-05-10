@@ -52,9 +52,9 @@ if __name__ == '__main__':
     
     model1.train(
         data="my_VisDrone.yaml",
-        epochs=400,   # 建议先跑 1 个 epoch，确保最后的 fuse 和 val 顺利通过
+        epochs=300,   # 建议先跑 1 个 epoch，确保最后的 fuse 和 val 顺利通过
         batch=8,
-        # patience=50,
+        patience=50,
         imgsz=640,
         device=0,
         workers=2,
@@ -67,5 +67,5 @@ if __name__ == '__main__':
         warmup_epochs=0,
         cache=True,
         project='prun',
-        name='prun_distill',
+        name='prun_fine',
     )

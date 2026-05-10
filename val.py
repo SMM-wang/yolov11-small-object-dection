@@ -24,6 +24,7 @@ if __name__ == '__main__':
         plots = True,
         save =True,
         #project = "C:/workspace/python/ultralytics-main/runs/detect",
-        # classes=3
+        # classes=3,
+        conf=0.001,
     )
     model.info()
