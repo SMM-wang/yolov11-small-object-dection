@@ -23,7 +23,7 @@ class FeatureAdaptation(nn.Module):
 # ==========================================
 # 2. 自定义蒸馏训练器 (继承官方 Trainer)
 # ==========================================
-class DistillationTrainer(DetectionTrainer):
+class DistillationTrainer_dis(DetectionTrainer):
     def __init__(self, teacher_path, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.teacher_path = teacher_path
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     TEACHER_WEIGHTS = 'runs/detect/prun/yolov11n/weights/best.pt'
 
     # 实例化自定义蒸馏训练器
-    trainer = DistillationTrainer(teacher_path=TEACHER_WEIGHTS, overrides=args)
+    trainer = DistillationTrainer_dis(teacher_path=TEACHER_WEIGHTS, overrides=args)
     
     # 启动训练
     print("🚀 开始特征+逻辑双重蒸馏训练...")
