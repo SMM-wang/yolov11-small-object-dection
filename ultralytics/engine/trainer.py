@@ -438,6 +438,21 @@ class BaseTrainer:
 
                 # Backward
                 self.scaler.scale(self.loss).backward()
+                
+               # ==========================================
+                # L1 正则稀疏训练 (Network Slimming)
+                # 动态衰减的 L1 惩罚系数 (前期强，后期弱)
+                l1_lambda = 1e-2 * (1 - 0.9 * epoch / self.epochs)
+                
+                for k, m in self.model.named_modules():
+                    if isinstance(m, nn.BatchNorm2d):
+                        # 1. 安全检查：必须确保 weight 存在且有梯度，防止断层报错！
+                        if m.weight is not None and m.weight.grad is not None:
+                            # w ← w - η * [原梯度 + λ * sign(w)]
+                            m.weight.grad.data.add_(l1_lambda * torch.sign(m.weight.data))
+
+                # ==========================================
+
                 if ni - last_opt_step >= self.accumulate:
                     self.optimizer_step()
                     last_opt_step = ni
