@@ -436,22 +436,27 @@ class BaseTrainer:
                         self.loss *= self.world_size
                     self.tloss = self.loss_items if self.tloss is None else (self.tloss * i + self.loss_items) / (i + 1)
 
+
+                # # ==========================================
+                # # 🚀 改进版 L1 正则稀疏训练 (Network Slimming)
+                # l1_lambda = 1e-2 * (1 - 0.9 * epoch / self.epochs)
+                # l1_penalty = torch.tensor(0.0, device=self.loss.device) # 初始化惩罚项
+                
+                # for k, m in self.model.named_modules():
+                #     if isinstance(m, nn.BatchNorm2d):
+                #         # 安全检查：必须确保 weight 存在且参与梯度更新
+                #         if m.weight is not None and m.weight.requires_grad:
+                #             # 直接对 weight 的绝对值求和
+                #             l1_penalty += m.weight.abs().sum()
+                
+                # # 核心改变：把惩罚加到总 Loss 上！
+                # sparse_loss = self.loss + l1_lambda * l1_penalty
+                
+                # # Backward (注意：这里用的是 sparse_loss ！)
+                # self.scaler.scale(sparse_loss).backward()
+                # # ==========================================
                 # Backward
                 self.scaler.scale(self.loss).backward()
-                
-               # ==========================================
-                # L1 正则稀疏训练 (Network Slimming)
-                # 动态衰减的 L1 惩罚系数 (前期强，后期弱)
-                l1_lambda = 1e-2 * (1 - 0.9 * epoch / self.epochs)
-                
-                for k, m in self.model.named_modules():
-                    if isinstance(m, nn.BatchNorm2d):
-                        # 1. 安全检查：必须确保 weight 存在且有梯度，防止断层报错！
-                        if m.weight is not None and m.weight.grad is not None:
-                            # w ← w - η * [原梯度 + λ * sign(w)]
-                            m.weight.grad.data.add_(l1_lambda * torch.sign(m.weight.data))
-
-                # ==========================================
 
                 if ni - last_opt_step >= self.accumulate:
                     self.optimizer_step()

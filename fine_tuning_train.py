@@ -48,11 +48,10 @@ DetectionTrainer.get_model = custom_get_model
 
 if __name__ == '__main__':
     # 注意路径：检查一下之前路径里的多余字母 r"rruns/..."，改回正常路径
-    model1 = YOLO(r"runs/detect/prun/ALL/weights/best_lamp_pruned_r0.50.pt")
-    
+    model1 = YOLO(r"runs/detect/prun/ALL/weights/best_taylor_pruned_r0.50.pt")   
     model1.train(
         data="my_VisDrone.yaml",
-        epochs=300,   # 建议先跑 1 个 epoch，确保最后的 fuse 和 val 顺利通过
+        epochs=1,   # 建议先跑 1 个 epoch，确保最后的 fuse 和 val 顺利通过
         batch=8,
         patience=50,
         imgsz=640,
@@ -69,4 +68,5 @@ if __name__ == '__main__':
         project='prun',
         name='prun_fine',
     )
-    
+
+ 

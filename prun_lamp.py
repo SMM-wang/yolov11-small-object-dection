@@ -13,22 +13,22 @@ from ultralytics.cfg import get_cfg
 # 1. 剪枝保护黑名单
 # ==========================================
 DEFAULT_IGNORE_KEYWORDS = (
-    "model.24",            # 保护检测头
+    # "model.24",            # 保护检测头
     "model.10.cv1_right",  # 保护 C2PSA 右路输入 (注意力源头)
     "model.10.m.",         # 保护 C2PSA 内部结构 (多头注意力、FFN等)
-    "attn",
-    "cross_att",
-    "shape_router",
-    "shape_h",
-    "shape_v",
-    "sfbs",
+    # "attn",
+    # "cross_att",
+    # "shape_router",
+    # "shape_h",
+    # "shape_v",
+    # "sfbs",
 )
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LAMP channel pruning for YOLOv11.")
     parser.add_argument("--model", type=Path, default=Path("runs/detect/prun/ALL/weights/best.pt"))
     parser.add_argument("--save", type=Path, default=None)
-    parser.add_argument("--ratio", type=float, default=0.50, help="全局通道剪枝率")
+    parser.add_argument("--ratio", type=float, default=0.385, help="全局通道剪枝率")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--min-channels", type=int, default=8, help="每层最少保留的通道数")
@@ -175,10 +175,26 @@ def main() -> None:
     example_inputs = torch.randn(1, 3, args.imgsz, args.imgsz, device=device)
     dependency_graph = tp.DependencyGraph().build_dependency(model, example_inputs=example_inputs)
 
+    # =========================================================================
+    # 🌟 护盾准备：记录全网所有卷积层的初始输出通道数
+    # =========================================================================
+    original_out_channels = {id(m): m.out_channels for _, m in model.named_modules() if isinstance(m, nn.Conv2d)}
+
     pruned_layers = 0
     pruned_channels = 0
+    
     for conv_id, idxs in sorted(plan.items(), key=lambda item: scores[item[0]][0]):
         name, conv, _score = scores[conv_id]
+        
+        # =========================================================================
+        # 🌟 核心护盾触发：防止残差/耦合层的重复剪枝 (Double Pruning)
+        # 如果当前层的 out_channels 已经不等于初始值，说明它在之前剪其他层时，
+        # 已经被作为“共同体”连带剪过了，必须跳过以防通道错位！
+        # =========================================================================
+        if conv.out_channels != original_out_channels[id(conv)]:
+            print(f"Skipped {name}: 已在耦合组中被连带剪枝，免疫二次伤害。")
+            continue
+            
         try:
             group = dependency_graph.get_pruning_group(conv, tp.prune_conv_out_channels, idxs=idxs)
             if dependency_graph.check_pruning_group(group):
@@ -190,7 +206,6 @@ def main() -> None:
             print(f"Skipped {name}: {exc}")
 
     fix_depthwise_groups(model)
-
     # 保存权重
     save_checkpoint(ckpt, model, save_path)
     print(f"\n✅ 真实剪枝执行完毕！成功修剪了 {pruned_channels} 个通道。模型已保存至: {save_path}")

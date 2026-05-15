@@ -13,10 +13,10 @@ import torch_pruning as tp
 import yaml
 from ultralytics import YOLO
 from ultralytics.cfg import get_cfg
-
+import torch.nn as nn
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL = Path("runs/detect/prun/yolov11n/weights/best.pt")
+DEFAULT_MODEL = Path("runs/detect/prun/ALL/weights/best.pt")
 DEFAULT_DATA = Path("ultralytics/cfg/datasets/my_VisDrone.yaml")
 
 
@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="auto", help="'auto', 'cpu', 'cuda', or cuda index like '0'.")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for calibration image sampling.")
     parser.add_argument("--min-channels", type=int, default=8, help="Minimum channels retained per pruned conv.")
-    parser.add_argument("--max-layer-ratio", type=float, default=0.60, help="Max fraction removed from one conv.")
+    parser.add_argument("--max-layer-ratio", type=float, default=0.80, help="Max fraction removed from one conv.")
     parser.add_argument("--ignore", nargs="*", default=list(DEFAULT_IGNORE_KEYWORDS), help="Name keywords to skip.")
     parser.add_argument("--dry-run", action="store_true", help="Score channels and print plan without pruning.")
     parser.add_argument("--overwrite", action="store_true", default=True, help="Allow replacing an existing output file.")
@@ -351,10 +351,23 @@ def main() -> None:
     example_inputs = torch.randn(1, 3, args.imgsz, args.imgsz, device=device)
     dependency_graph = tp.DependencyGraph().build_dependency(model, example_inputs=example_inputs)
 
+    # =========================================================================
+    # 🌟 护盾准备：记录全网所有卷积层的初始输出通道数
+    # =========================================================================
+    original_out_channels = {id(m): m.out_channels for _, m in model.named_modules() if isinstance(m, nn.Conv2d)}
+
     pruned_layers = 0
     pruned_channels = 0
     for conv_id, idxs in sorted(plan.items(), key=lambda item: scores[item[0]][0]):
         name, conv, _score = scores[conv_id]
+        
+        # =========================================================================
+        # 🌟 核心护盾触发：防止残差/耦合层的重复剪枝 (Double Pruning)
+        # =========================================================================
+        if conv.out_channels != original_out_channels[id(conv)]:
+            print(f"Skipped {name}: 已在耦合组中被连带剪枝，免疫二次伤害。")
+            continue
+            
         try:
             group = dependency_graph.get_pruning_group(conv, tp.prune_conv_out_channels, idxs=idxs)
             if dependency_graph.check_pruning_group(group):
@@ -375,6 +388,22 @@ def main() -> None:
     print(f"Pruned output channels: {pruned_channels}")
     print(f"Fixed depthwise groups: {fixed_dw}")
     print(f"Saved: {save_path}")
+
+    # =========================================================================
+    # 📊 新增：打印剪枝前后的真实 FLOPs 和参数量对比
+    # =========================================================================
+    print("\nCalculating Compression Ratio...")
+    pruned_ops, pruned_params = tp.utils.count_ops_and_params(model, example_inputs)
+    
+    yolo_base = YOLO(str(model_path))
+    model_base = yolo_base.model.to(device)
+    ensure_loss_args(model_base, ckpt)
+    model_base.eval()
+    base_ops, base_params = tp.utils.count_ops_and_params(model_base, example_inputs)
+    
+    print(f"[Before Pruning] FLOPs: {(base_ops*2) / 1e9:.2f} G, Params: {base_params / 1e6:.2f} M")
+    print(f"[After  Pruning] FLOPs: {(pruned_ops*2) / 1e9:.2f} G, Params: {pruned_params / 1e6:.2f} M")
+    print(f"Compression Ratio -> FLOPs reduced: {1 - pruned_ops/base_ops:.2%}, Params reduced: {1 - pruned_params/base_params:.2%}")
 
 
 if __name__ == "__main__":
