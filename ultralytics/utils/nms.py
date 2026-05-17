@@ -78,7 +78,8 @@ def non_max_suppression(
 
     # Settings
     # min_wh = 2  # (pixels) minimum box width and height
-    time_limit = 2.0 + max_time_img * bs  # seconds to quit after
+    # time_limit = 2.0 + max_time_img * bs  # seconds to quit after
+    time_limit = 20  # 【修改】：直接给 100 秒的超时宽限，彻底解除封印
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
 
     prediction = prediction.transpose(-1, -2)  # shape(1,84,6300) to shape(1,6300,84)
@@ -147,13 +148,21 @@ def non_max_suppression(
             i = TorchNMS.fast_nms(boxes, scores, iou_thres, iou_func=batch_probiou)
         else:
             boxes = x[:, :4] + c  # boxes (offset by class)
-            # Speed strategy: torchvision for val or already loaded (faster), TorchNMS for predict (lower latency)
+            # # Speed strategy: torchvision for val or already loaded (faster), TorchNMS for predict (lower latency)
             if "torchvision" in sys.modules:
                 import torchvision  # scope as slow import
-
                 i = torchvision.ops.nms(boxes, scores, iou_thres)
             else:
                 i = TorchNMS.nms(boxes, scores, iou_thres)
+
+
+            # ===== 替换为自定义 NMS =====      
+
+            # i = soft_nms(boxes, scores, iou_thresh=iou_thres, sigma=0.3, score_threshold=conf_thres)
+            # i = confluence_nms(boxes, scores, md_thresh=0.8) # 阈值可以从 0.5 到 0.8 进行微调
+            # i = original_confluence_nms(boxes, scores, md_thresh=0.8,cluster_thresh=2.0) # 阈值可以从 0.5 到 0.8 进行微调
+
+
         i = i[:max_det]  # limit detections
 
         output[xi] = x[i]
@@ -165,6 +174,104 @@ def non_max_suppression(
 
     return (output, keepi) if return_idxs else output
 
+def soft_nms(boxes, scores, iou_thresh=0.5, sigma=0.3, score_threshold=0.001):
+    """
+    全张量加速版 Soft-NMS。
+    注意：score_threshold 必须极低（如0.001），这样打折后的小框才不会被提前丢弃，
+    从而解决“重叠目标只剩一个大整体框”的问题。
+    """
+    if boxes.numel() == 0:
+        return torch.empty((0,), dtype=torch.int64, device=boxes.device)
+
+    x1, y1, x2, y2 = boxes.unbind(1)
+    areas = (x2 - x1) * (y2 - y1)
+
+    order = scores.argsort(0, descending=True)
+    keep = torch.zeros(order.numel(), dtype=torch.int64, device=boxes.device)
+    keep_idx = 0
+
+    while order.numel() > 0:
+        if order.numel() == 1:
+            keep[keep_idx] = order[0]
+            keep_idx += 1
+            break
+            
+        i = order[0]
+        keep[keep_idx] = i
+        keep_idx += 1
+
+        rest = order[1:]
+
+        xx1 = torch.maximum(x1[i], x1[rest])
+        yy1 = torch.maximum(y1[i], y1[rest])
+        xx2 = torch.minimum(x2[i], x2[rest])
+        yy2 = torch.minimum(y2[i], y2[rest])
+
+        w = (xx2 - xx1).clamp_(min=0)
+        h = (yy2 - yy1).clamp_(min=0)
+        inter = w * h
+        union = areas[i] + areas[rest] - inter
+        iou = inter / union
+
+        # Soft-NMS 核心：高斯衰减代替一刀切
+        decay = torch.exp(-iou.pow(2) / sigma)
+        scores[rest] *= decay
+
+        # 使用极低的内部阈值进行保留
+        valid = scores[rest] > score_threshold
+        order = rest[valid]
+
+        if order.numel() > 0:
+            _, sorted_idx = scores[order].sort(0, descending=True)
+            order = order[sorted_idx]
+
+    return keep[:keep_idx]
+
+def confluence_nms(boxes, scores, md_thresh=0.6):
+    """
+    全张量加速版 Confluence (归一化曼哈顿距离) NMS
+    完全抛弃 IoU，利用坐标边界的 L1 距离来判断冗余
+    """
+    if boxes.numel() == 0:
+        return torch.empty((0,), dtype=torch.int64, device=boxes.device)
+
+    # 拆解坐标，计算每个框的宽高
+    x1, y1, x2, y2 = boxes.unbind(1)
+    w = (x2 - x1).clamp_(min=1e-3)
+    h = (y2 - y1).clamp_(min=1e-3)
+
+    # 按置信度得分降序排列
+    order = scores.argsort(0, descending=True)
+    keep = torch.zeros(order.numel(), dtype=torch.int64, device=boxes.device)
+    keep_idx = 0
+
+    while order.numel() > 0:
+        i = order[0]
+        keep[keep_idx] = i
+        keep_idx += 1
+
+        if order.numel() == 1:
+            break
+
+        rest = order[1:]
+
+        # 【核心创新】：计算归一化曼哈顿距离 (Normalized Manhattan Distance)
+        # 为什么要除以 w[i] 和 h[i]？
+        # 因为航拍图里有大车也有小人，必须以当前最高分目标自身的尺寸作为空间尺度基准
+        diff_x1 = torch.abs(x1[i] - x1[rest]) / w[i]
+        diff_y1 = torch.abs(y1[i] - y1[rest]) / h[i]
+        diff_x2 = torch.abs(x2[i] - x2[rest]) / w[i]
+        diff_y2 = torch.abs(y2[i] - y2[rest]) / h[i]
+
+        # 总曼哈顿距离：四个边界坐标偏移比例的绝对值之和
+        md_norm = diff_x1 + diff_y1 + diff_x2 + diff_y2
+
+        # 剔除机制：
+        # 如果 md_norm 极小（小于阈值），说明这是同一个物体的冗余框，剔除它！
+        # 如果 md_norm 较大（大于阈值），说明它是相邻的另一个独立物体，保留它！
+        order = rest[md_norm > md_thresh]
+
+    return keep[:keep_idx]
 
 class TorchNMS:
     """Ultralytics custom NMS implementation optimized for YOLO.
