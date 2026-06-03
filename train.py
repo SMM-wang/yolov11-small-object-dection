@@ -61,18 +61,20 @@ def clear_cuda_memory_batch(trainer):
 
 from ultralytics import settings
 settings["tensorboard"]=True
-
+# 引入 Loss 类以便重置打印 Flag
+from ultralytics.utils.loss import v8DetectionLoss
 
 if __name__ == '__main__':
-    # visdrone2019
-    model1 = YOLO("ultralytics/cfg/models/11/yolo11SACSP+SFPN.yaml")
+
+    os.environ["CURRENT_ASSIGNER"] = "TaskAligned"
+    v8DetectionLoss._assigner_printed = False  # 重置打印拦截
+    model1 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
     # model1.add_callback("on_train_batch_end", clear_cuda_memory_batch)
     # model1.add_callback("on_train_epoch_end", clear_cuda_memory)
     # model1.add_callback("on_val_batch_end", clear_cuda_memory_val_batch)
-
     model1.train(
-        data="my_VisDrone.yaml",
-        # data="AI_TODe.yaml", 
+        # data="my_VisDrone.yaml",
+        data="AI_TOD.yaml", 
         epochs=400,
         batch=8,
         # batch=8,
@@ -87,65 +89,149 @@ if __name__ == '__main__':
         # lr0=0.007,  # 设置初始学习率为0.007
         lr0=0.01,
         lrf=0.01,
-        box_iou="SNAIoU",
+        box_iou="CIoU",
         warmup_epochs=3,
         cache = True,
         #project="C:/workspace/python/ultralytics-main/runs/detect",
         # resume=True,
     )
+#     os.environ["CURRENT_ASSIGNER"] = "NBCD"
+#     v8DetectionLoss._assigner_printed = False  # 重置打印拦截，确保 Model 2 也能触发打印
+#     model2 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
 
-    # model3 = YOLO("ultralytics/cfg/models/11/yolo11MSAL+SFPN.yaml")
-    # model3.add_callback("on_train_epoch_end", clear_cuda_memory)
-    # model3.add_callback("on_train_batch_end", clear_cuda_memory_batch)
-    # model3.add_callback("on_val_batch_end", clear_cuda_memory_val_batch)
+#     model2.train(
+#         # data="my_VisDrone.yaml",
+#         data="AI_TOD.yaml", 
+#         epochs=400,
+#         batch=8,
+#         # batch=8,
+#         imgsz=640,
+#         device=0,
+#         workers=2,
+#         amp=True,
+#         # patience=25,  #早停
+#         cos_lr=True, # 使用余弦退火调度器
+#         # optimizer="AdamW",  # 使用AdamW优化器
+#         optimizer="SGD",
+#         # lr0=0.007,  # 设置初始学习率为0.007
+#         lr0=0.01,
+#         lrf=0.01,
+#         box_iou="CIoU",
+#         warmup_epochs=3,
+#         cache = True,
+#         project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
+#         # resume=True,
+#     )
+
+    # os.environ["CURRENT_ASSIGNER"] = "NBCD"
+    # v8DetectionLoss._assigner_printed = False  # 重置打印拦截，确保 Model 2 也能触发打印
+    # model3 = YOLO("ultralytics/cfg/models/11/yolo11SACSP+SFPN.yaml")
+
     # model3.train(
-    #     # data="my_VisDrone_e.yaml",
-    #     data="AI_TOD.yaml",
+    #     # data="my_VisDrone.yaml",
+    #     data="AI_TOD.yaml", 
     #     epochs=400,
-    #     batch=4,
+    #     batch=8,
+    #     # batch=8,
     #     imgsz=640,
     #     device=0,
-    #     workers=0,
+    #     workers=2,
     #     amp=True,
-    #     patience=10,  #早停
+    #     # patience=25,  #早停
     #     cos_lr=True, # 使用余弦退火调度器
     #     # optimizer="AdamW",  # 使用AdamW优化器
     #     optimizer="SGD",
     #     # lr0=0.007,  # 设置初始学习率为0.007
-    #     # lr0=0.001,
+    #     lr0=0.01,
     #     lrf=0.01,
+    #     box_iou="SNAIoU",
     #     warmup_epochs=3,
     #     cache = True,
-    #     project="C:/workspace/python/ultralytics-main/runs/detect",
+    #     project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
     #     # resume=True,
     # )
+    # os.environ["CURRENT_ASSIGNER"] = "TaskAligned"
+    # v8DetectionLoss._assigner_printed = False  # 重置打印拦截，确保 Model 2 也能触发打印
+    # model4 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
 
-
-
-    # model = YOLO("ultralytics/cfg/models/11/yolo11MSAL.yaml")
-    # model.add_callback("on_train_epoch_end", clear_cuda_memory)
-    # model.add_callback("on_train_batch_end", clear_cuda_memory_batch)
-    # model.train(
-    #     data="my_VisDrone.yaml",
-    #     # data="AI_TOD.yaml",
+    # model4.train(
+    #     # data="my_VisDrone.yaml",
+    #     data="AI_TOD.yaml", 
     #     epochs=400,
     #     batch=8,
+    #     # batch=8,
     #     imgsz=640,
     #     device=0,
-    #     workers=0,
+    #     workers=2,
     #     amp=True,
-    #     patience=10,  #早停
+    #     # patience=25,  #早停
     #     cos_lr=True, # 使用余弦退火调度器
-    #     optimizer="AdamW",  # 使用AdamW优化器
-    #     # optimizer="SGD",
-    #     lr0=0.007,  # 设置初始学习率为0.007
-    #     # lr0=0.001,
-    #     # lrf=0.01,
+    #     # optimizer="AdamW",  # 使用AdamW优化器
+    #     optimizer="SGD",
+    #     # lr0=0.007,  # 设置初始学习率为0.007
+    #     lr0=0.01,
+    #     lrf=0.01,
+    #     box_iou="SNAIoU",
     #     warmup_epochs=3,
     #     cache = True,
-    #     project=r"../runs/detect",
+    #     project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
     #     # resume=True,
     # )
+    # os.environ["CURRENT_ASSIGNER"] = "TaskAligned"
+    # v8DetectionLoss._assigner_printed = False  # 重置打印拦截，确保 Model 2 也能触发打印
+    # model4 = YOLO("ultralytics/cfg/models/11/yolo11SACSP.yaml")
+
+    # model4.train(
+    #     # data="my_VisDrone.yaml",
+    #     data="AI_TOD.yaml", 
+    #     epochs=400,
+    #     batch=8,
+    #     # batch=8,
+    #     imgsz=640,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     # patience=25,  #早停
+    #     cos_lr=True, # 使用余弦退火调度器
+    #     # optimizer="AdamW",  # 使用AdamW优化器
+    #     optimizer="SGD",
+    #     # lr0=0.007,  # 设置初始学习率为0.007
+    #     lr0=0.01,
+    #     lrf=0.01,
+    #     box_iou="CIoU",
+    #     warmup_epochs=3,
+    #     cache = True,
+    #     project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
+    #     # resume=True,
+    # )
+    # os.environ["CURRENT_ASSIGNER"] = "TaskAligned"
+    # v8DetectionLoss._assigner_printed = False  # 重置打印拦截，确保 Model 2 也能触发打印
+    # model5 = YOLO("ultralytics/cfg/models/11/yolo11SFPN.yaml")
+
+    # model5.train(
+    #     # data="my_VisDrone.yaml",
+    #     data="AI_TOD.yaml", 
+    #     epochs=400,
+    #     batch=8,
+    #     # batch=8,
+    #     imgsz=640,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     # patience=25,  #早停
+    #     cos_lr=True, # 使用余弦退火调度器
+    #     # optimizer="AdamW",  # 使用AdamW优化器
+    #     optimizer="SGD",
+    #     # lr0=0.007,  # 设置初始学习率为0.007
+    #     lr0=0.01,
+    #     lrf=0.01,
+    #     box_iou="CIoU",
+    #     warmup_epochs=3,
+    #     cache = True,
+    #     project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
+    #     # resume=True,
+    # )
+    
 
 # Insulator-Defect Detection
 

@@ -52,11 +52,11 @@ def get_next_exp_folder(base_path):
 # model = YOLO(r"../runs/detect/visdrone2019e结果/NECK/YOLO11MSALCSP+ASFF/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/NECK/base/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/ALL/weights/best.pt")
-model = YOLO(r"runs/detect/prun/ALL/weights/best.pt")
+model = YOLO(r"runs/detect/AT_TOD结果/ALL/weights/best.pt")
 # model = YOLO(r"runs/detect/prun/yolov11n/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/SACSP/weights/best.pt")
 # 设置源路径 - 可改为图片路径、视频路径或文件夹路径
-source = "./aaa/test_picture/drone6.jpg"  # 图片示例
+source = "./aaa/test_picture/drone9.jpg"  # 图片示例
 # source = r"./test_picture"
 # source = r"./aaa/test_picture/0000308_02201_d_0000316.jpg"
 # source = '../che.avi'  # 视频示例
@@ -100,8 +100,8 @@ results = model.predict(
     stream=is_video,  # 视频流需要流式处理
     save=False,  # 关闭自动保存
     # classes = [3],
-    conf=0.2,  # 测试阈值
-    iou=1.0,  # IOU阈值
+    conf=0.25,  # 测试阈值
+    iou=0.3,  # IOU阈值
     # max_det=3000
 )
 

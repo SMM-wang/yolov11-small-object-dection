@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from ultralytics.utils.metrics import OKS_SIGMA, RLE_WEIGHT
 from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
-from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
+from ultralytics.utils.tal import RotatedTaskAlignedAssigner,NBCDAssigner,TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
 from ultralytics.utils.torch_utils import autocast
 
 from .metrics import bbox_iou, probiou
@@ -357,7 +357,8 @@ class KeypointLoss(nn.Module):
 
 class v8DetectionLoss:
     """Criterion class for computing training losses for YOLOv8 object detection."""
-
+# 增加一个类级别的 flag，确保整个类的生命周期内只打印一次状态
+    _assigner_printed = False
     def __init__(self, model, tal_topk: int = 10, tal_topk2: int | None = None):  # model must be de-paralleled
         """Initialize v8DetectionLoss with model parameters and task-aligned assignment settings."""
         device = next(model.parameters()).device  # get model device
@@ -374,14 +375,45 @@ class v8DetectionLoss:
 
         self.use_dfl = m.reg_max > 1
 
-        self.assigner = TaskAlignedAssigner(
-            topk=tal_topk,
-            num_classes=self.nc,
-            alpha=0.5,
-            beta=6.0,
-            stride=self.stride.tolist(),
-            topk2=tal_topk2,
-        )
+        # self.assigner = TaskAlignedAssigner(
+        #     topk=tal_topk,
+        #     num_classes=self.nc,
+        #     alpha=0.5,
+        #     beta=6.0,
+        #     stride=self.stride.tolist(),
+        #     topk2=tal_topk2,
+        # )
+# ==========================================
+        # Assigner 选择与单次打印逻辑
+        # ==========================================
+        import os
+        # 读取环境变量，明确区分
+        current_assigner = os.environ.get("CURRENT_ASSIGNER", "TaskAligned")
+
+        if not v8DetectionLoss._assigner_printed:
+            print("\n" + "="*60)
+            print(f"🚀 [Model Setup] Currently using: {current_assigner} Assign Strategy")
+            print("="*60 + "\n")
+            v8DetectionLoss._assigner_printed = True
+
+        if current_assigner == "NBCD":
+            self.assigner = NBCDAssigner(
+                topk=tal_topk,
+                num_classes=self.nc,
+                alpha=1.0,
+                beta=5.0,
+                stride=self.stride.tolist(),
+                topk2=tal_topk2,
+            )
+        else:
+            self.assigner = TaskAlignedAssigner(
+                topk=tal_topk,
+                num_classes=self.nc,
+                alpha=0.5,
+                beta=6.0,
+                stride=self.stride.tolist(),
+                topk2=tal_topk2,
+            )        
         # self.bbox_loss = BboxLoss(m.reg_max).to(device)
         self.bbox_loss = BboxLoss(m.reg_max, iou_type=getattr(h, 'box_iou', 'CIoU')).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
