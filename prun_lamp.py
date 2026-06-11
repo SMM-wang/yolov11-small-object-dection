@@ -16,19 +16,13 @@ DEFAULT_IGNORE_KEYWORDS = (
     # "model.24",            # 保护检测头
     "model.10.cv1_right",  # 保护 C2PSA 右路输入 (注意力源头)
     "model.10.m.",         # 保护 C2PSA 内部结构 (多头注意力、FFN等)
-    # "attn",
-    # "cross_att",
-    # "shape_router",
-    # "shape_h",
-    # "shape_v",
-    # "sfbs",
 )
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LAMP channel pruning for YOLOv11.")
-    parser.add_argument("--model", type=Path, default=Path("runs/detect/prun/ALL/weights/best.pt"))
+    parser.add_argument("--model", type=Path, default=Path("runs/detect/prun/ALL_RFD/weights/best.pt"))
     parser.add_argument("--save", type=Path, default=None)
-    parser.add_argument("--ratio", type=float, default=0.385, help="全局通道剪枝率")
+    parser.add_argument("--ratio", type=float, default=0.6, help="全局通道剪枝率")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--min-channels", type=int, default=8, help="每层最少保留的通道数")
@@ -151,12 +145,8 @@ def main() -> None:
     model = yolo.model.to(device)
     ensure_loss_args(model, ckpt)
 
-    # =========================================================================
-    # 🌟 终极致胜魔法：解除 YOLO 推理模式下的参数冻结，让追踪器睁开眼睛！
-    # =========================================================================
     for p in model.parameters():
         p.requires_grad_(True)
-    # =========================================================================
 
     model.eval()
 
@@ -164,20 +154,17 @@ def main() -> None:
     scores = collect_lamp_scores(model, args.ignore, p=2)
     plan = build_pruning_plan(scores, args.ratio, args.min_channels, args.max_layer_ratio)
     
-    print("\nLAMP pruning plan:")
+    print("\nLAMP initial pruning plan (Pre-Alignment):")
     for conv_id, idxs in sorted(plan.items(), key=lambda item: scores[item[0]][0]):
         name, conv, _score = scores[conv_id]
         print(f"  {name}: remove {len(idxs)}/{conv.out_channels}")
 
     if args.dry_run: return
 
-    print("\nBuilding Dependency Graph...")
+    print("\nBuilding Dependency Graph & Aligning Channels...")
     example_inputs = torch.randn(1, 3, args.imgsz, args.imgsz, device=device)
     dependency_graph = tp.DependencyGraph().build_dependency(model, example_inputs=example_inputs)
 
-    # =========================================================================
-    # 🌟 护盾准备：记录全网所有卷积层的初始输出通道数
-    # =========================================================================
     original_out_channels = {id(m): m.out_channels for _, m in model.named_modules() if isinstance(m, nn.Conv2d)}
 
     pruned_layers = 0
@@ -186,31 +173,56 @@ def main() -> None:
     for conv_id, idxs in sorted(plan.items(), key=lambda item: scores[item[0]][0]):
         name, conv, _score = scores[conv_id]
         
-        # =========================================================================
-        # 🌟 核心护盾触发：防止残差/耦合层的重复剪枝 (Double Pruning)
-        # 如果当前层的 out_channels 已经不等于初始值，说明它在之前剪其他层时，
-        # 已经被作为“共同体”连带剪过了，必须跳过以防通道错位！
-        # =========================================================================
         if conv.out_channels != original_out_channels[id(conv)]:
             print(f"Skipped {name}: 已在耦合组中被连带剪枝，免疫二次伤害。")
             continue
             
         try:
+# =====================================================================
+            # 🌟 破除对齐魔咒：直接信任 torch_pruning 的依赖图
+            # =====================================================================
+            # 1. 预构建组
             group = dependency_graph.get_pruning_group(conv, tp.prune_conv_out_channels, idxs=idxs)
+            
+            # 2. 探雷器：只拦截非 DWConv 的奇葩分组卷积
+            align_multiple = 1
+            for dep, _ in group:
+                module = dep.target.module
+                if isinstance(module, nn.Conv2d) and module.groups > 1:
+                    # 只要是深度卷积 (DWConv)，直接放行，不需要任何对齐！
+                    # 依赖图会自动切断对应通道，最后的 fix_depthwise_groups 会修复 groups 参数
+                    if module.groups == module.in_channels or module.groups == module.out_channels:
+                        continue
+                    align_multiple = max(align_multiple, module.groups)
+            
+            # 3. 对齐计算：仅在真·分组卷积时触发
+            if align_multiple > 1:
+                orig_out = conv.out_channels
+                target_retained = orig_out - len(idxs)
+                aligned_retained = ((target_retained + align_multiple - 1) // align_multiple) * align_multiple
+                aligned_retained = min(aligned_retained, orig_out)
+                aligned_remove = orig_out - aligned_retained
+                
+                if aligned_remove != len(idxs):
+                    if aligned_remove == 0:
+                        continue
+                    idxs = torch.argsort(_score).flatten().tolist()[:aligned_remove]
+                    group = dependency_graph.get_pruning_group(conv, tp.prune_conv_out_channels, idxs=idxs)
+            # =====================================================================
+
             if dependency_graph.check_pruning_group(group):
                 group.prune()
                 pruned_layers += 1
                 pruned_channels += len(idxs)
                 print(f"Pruned {name}: {len(idxs)} channels")
+                
         except Exception as exc:
             print(f"Skipped {name}: {exc}")
 
     fix_depthwise_groups(model)
-    # 保存权重
     save_checkpoint(ckpt, model, save_path)
     print(f"\n✅ 真实剪枝执行完毕！成功修剪了 {pruned_channels} 个通道。模型已保存至: {save_path}")
 
-    # 后置清算计算量 (隔绝 Hook 污染)
     print("\nCalculating Compression Ratio...")
     pruned_ops, pruned_params = tp.utils.count_ops_and_params(model, example_inputs)
     

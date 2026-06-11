@@ -58,6 +58,7 @@ __all__ = (
     "SACSP",
     "My_Index",
 
+    "RFD",
 
 
 )
@@ -2844,3 +2845,142 @@ class My_Index(nn.Module):
             return x[self.idx] if self.idx in x else list(x.values())[self.idx]
         else:
             raise TypeError(f"Index: expected list/tuple/dict, but got {type(x)}")
+class SPD(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        # 加上 bias=False，因为后面紧跟了 BatchNorm，偏置不起作用还会占参数
+        self.conv_fusion = nn.Conv2d(in_channels * 4, out_channels, kernel_size=1, stride=1, bias=False)
+        self.batch_norm = nn.BatchNorm2d(out_channels)
+        # 添加了 GELU，保证非线性表达（可选，但通常有助于涨点）
+        self.act = nn.SiLU()
+
+    def forward(self, x):
+        x0 = x[:, :, 0::2, 0::2]  # x = [B, C, H/2, W/2]
+        x1 = x[:, :, 1::2, 0::2]
+        x2 = x[:, :, 0::2, 1::2]
+        x3 = x[:, :, 1::2, 1::2]
+        x = torch.cat([x0, x1, x2, x3], dim=1)  # x = [B, 4*C, H/2, W/2]
+        x = self.conv_fusion(x)     # x = [B, out_channels, H/2, W/2]
+        x = self.act(self.batch_norm(x))
+        return x
+
+# Deep feature downsampling C
+class RFD(nn.Module):
+    """
+    RFD - 极致轻量 & 完美剪枝版
+    所有中间深度特征提取严格保持 in_channels 维度，杜绝通道扩张引起的参数暴增与剪枝撕裂。
+    """
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        # 1. 辅助分支 (CutD): 负责无损直通，输出直接对齐 out_channels
+        self.spd_c = SPD(in_channels=in_channels, out_channels=out_channels)
+        
+        # 2. 前置特征提取: 严格保持 in_channels (等宽 DWConv，剪枝绝对安全)
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1, groups=in_channels, bias=False),
+            nn.BatchNorm2d(in_channels),
+            nn.SiLU()
+        )
+        
+        # 3. DWConvD 下采样分支: 严格保持 in_channels
+        self.conv_x = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=2, padding=1, groups=in_channels, bias=False),
+            nn.BatchNorm2d(in_channels),
+            nn.SiLU()
+        )
+        
+        # 4. MaxD 下采样分支: 严格保持 in_channels
+        self.max_m = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.batch_norm_m = nn.BatchNorm2d(in_channels)
+        
+        # 5. 融合层 (Fusion)
+        # 拼接维度计算：cut_c(out) + conv_x(in) + max_m(in) = out_channels + 2 * in_channels
+        fusion_in_channels = out_channels + 2 * in_channels
+        self.fusion = nn.Sequential(
+            nn.Conv2d(fusion_in_channels, out_channels, kernel_size=1, stride=1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.SiLU()
+        )
+
+    def forward(self, x):       
+        # 1. 下路：SPD 直接降维并转换通道
+        c = self.spd_c(x)       
+        
+        # 2. 上路前置：维持原通道提取特征
+        x_main = self.conv(x)        
+        
+        # 3. 上路衍生分支 1：DW 下采样
+        x_dw = self.conv_x(x_main)      
+        
+        # 4. 上路衍生分支 2：池化下采样
+        m = self.max_m(x_main)       
+        m = self.batch_norm_m(m)
+        
+        # 5. 最终融合
+        out = torch.cat([c, x_dw, m], dim=1)  
+        out = self.fusion(out)             
+        
+        return out
+    
+#     2C
+# class RFD(nn.Module):
+#     def __init__(self, in_channels, out_channels):
+#         super().__init__()
+#         mid_channels = 2 * in_channels
+
+#         # 1. SPD 辅助分支
+#         self.spd_c = SPD(in_channels=in_channels, out_channels=mid_channels)
+        
+#         # =========================================================
+#         # 🌟 修复核心：将带有倍增的 groups 卷积解耦为 PW + DW
+#         # =========================================================
+#         self.conv = nn.Sequential(
+#             # 第一步：1x1 点卷积 (PW) 负责维度扩张 C -> 2C (无 groups 限制，随便剪)
+#             nn.Conv2d(in_channels, mid_channels, kernel_size=1, stride=1, bias=False),
+#             nn.BatchNorm2d(mid_channels),
+#             nn.SiLU(),
+#             # 第二步：3x3 深度卷积 (DW) 负责空间提取 (此时 in=out=mid_channels，完美等宽 DW)
+#             nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1, groups=mid_channels, bias=False)
+#         )
+#         # 注意：因为移到了 Sequential 里，原本独立的 bn 和 act 就可以删掉了
+        
+#         # 3. DWConvD 分支 (等宽 DW，完美安全)
+#         self.conv_x = nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=2, padding=1, groups=mid_channels, bias=False)
+#         self.batch_norm_x = nn.BatchNorm2d(mid_channels)
+#         self.act_x = nn.SiLU()
+        
+#         # 4. MaxD 分支
+#         self.max_m = nn.MaxPool2d(kernel_size=2, stride=2)
+#         self.batch_norm_m = nn.BatchNorm2d(mid_channels)
+        
+#         # 5. Cat+Conv 融合层
+#         self.fusion = nn.Sequential(
+#             nn.Conv2d(3 * mid_channels, out_channels, kernel_size=1, stride=1, bias=False),
+#             nn.BatchNorm2d(out_channels),
+#             nn.GELU ()
+#         )
+
+#     def forward(self, x):       
+#         c = x                   
+        
+#         # 走解耦后的特征提取分支 (直接过 Sequential)
+#         x = self.conv(x)        
+#         m = x                   
+        
+#         # 1. SPD 下路
+#         c = self.spd_c(c)       
+        
+#         # 2. DWConvD 上路分支
+#         x = self.conv_x(x)      
+#         x = self.act_x(self.batch_norm_x(x))
+        
+#         # 3. MaxD 上路分支
+#         m = self.max_m(m)       
+#         m = self.batch_norm_m(m)
+        
+#         # 4. Concat + conv 融合
+#         out = torch.cat([c, x, m], dim=1)  
+#         out = self.fusion(out)             
+        
+#         return out

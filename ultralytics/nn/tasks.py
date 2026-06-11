@@ -73,15 +73,16 @@ from ultralytics.nn.modules import (
     YOLOESegment26,
     v10Detect,
 
-    HWD
+    HWD,
+    RFD,
 )
 
 from ultralytics.nn.modules.block import (MSALCSP,SACSP,My_Index)
 
 from ultralytics.nn.modules.CFPT import CFPT
 from ultralytics.nn.modules.SFPN import SFPN,SFM
-
 from ultralytics.nn.modules.ASFF import ASFF
+
 
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1596,6 +1597,7 @@ def parse_model(d, ch, verbose=True):
             MSALCSP,
             SACSP,
             HWD,
+            RFD,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments

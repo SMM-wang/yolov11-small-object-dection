@@ -1,0 +1,37 @@
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: aaa/datasets/CODrone
+train: train/images
+val: val/images 
+test: test/images
+# Classes
+names:
+  0: car
+  1: truck
+  2: traffic-sign
+  3: people
+  4: motor
+  5: bicycle
+  6: traffic-light
+  7: tricycle
+  8: bridge
+  9: bus
+  10: boat
+  11: ship
+  12: ignored
+
+# names:
+#   0: 汽车
+#   1: 卡车
+#   2: 交通标志
+#   3: 行人
+#   4: 摩托车
+#   5: 自行车
+#   6: 交通信号灯
+#   7: 三轮车
+#   8: 桥梁
+#   9: 公交车
+#   10: 小船
+#   11: 轮船
+#   12: 忽略  
+

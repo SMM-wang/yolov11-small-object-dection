@@ -1,0 +1,17 @@
+path: /3240410021/ultralytics-main/aaa/datasets/uavod
+train: train/images
+val: valid/images
+test: test/images
+
+
+names: 
+  0: building
+  1: cable-tower
+  2: cultivation-mesh-cage
+  3: landslide
+  4: pool
+  5: prefabricated-house
+  6: quarry
+  7: ship
+  8: vehicle
+  9: well

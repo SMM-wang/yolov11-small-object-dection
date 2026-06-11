@@ -26,6 +26,7 @@ __all__ = (
     "SpatialAttention",
 
     "HWD",
+    "PSD",
 )
 
 
@@ -670,130 +671,6 @@ class Index(nn.Module):
         """
         return x[self.index]
 
-# class HWD(nn.Module):
-#     """
-#     Haar 小波变换下采样
-#     """
-#     def __init__(self,in_ch,out_ch):
-#         super(HWD, self).__init__()
-#
-#         # 定义深度可分离卷积 (DW+PW)
-#         self.Conv = nn.Sequential(
-#             # 步骤 1: Depthwise Conv 3x3
-#             # 作用: 给每个频段(LL, LH...)单独增加感受野，让格子之间产生联系
-#             # 关键点: groups = in_ch * 4，这使得参数量极小
-#             nn.Conv2d(in_ch * 4, in_ch * 4, kernel_size=3, stride=1, padding=1,
-#                       groups=in_ch * 4, bias=False),
-#             nn.BatchNorm2d(in_ch * 4),
-#             nn.SiLU(inplace=True),
-#
-#             # 步骤 2: Pointwise Conv 1x1
-#             # 作用: 将 4 个频段的信息融合，并降维到 out_ch
-#             # 参数量: (4*in_ch) * out_ch，和你原来的版本一样
-#             nn.Conv2d(in_ch * 4, out_ch, kernel_size=1, stride=1, bias=False),
-#             nn.BatchNorm2d(out_ch),
-#             nn.SiLU(inplace=True),
-#         )
-#     def forward(self,x):
-#         b, c, h, w = x.shape
-#         # 确保长宽是偶数，如果不是则padding
-#         if h % 2 != 0 or w % 2 != 0:
-#             x = F.pad(x, (0, w % 2, 0, h % 2))
-#             b, c, h, w = x.shape
-#
-#         x_reshaped = x.view(b, c, h // 2, 2, w // 2, 2)
-#
-#         # 提取四个分量
-#         x1 = x_reshaped[:, :, :, 0, :, 0]
-#         x2 = x_reshaped[:, :, :, 0, :, 1]
-#         x3 = x_reshaped[:, :, :, 1, :, 0]
-#         x4 = x_reshaped[:, :, :, 1, :, 1]
-#
-#         # LL: 近似分量 (Low-Low)
-#         ll = x1 + x2 + x3 + x4
-#
-#         # 高频分量融合 (Horizontal, Vertical, Diagonal)
-#         # 我们将它们拼接作为细节特征
-#         lh = x1 - x2 + x3 - x4
-#         hl = x1 + x2 - x3 - x4
-#         hh = x1 - x2 - x3 + x4
-#
-#         out =  torch.cat([ll,lh, hl, hh], dim=1)
-#         out = self.Conv(out)
-#
-#         return out
-
-# class HWD(nn.Module):
-#     """优化版Haar小波变换下采样：补充空间关联能力"""
-#     def __init__(self,in_ch,out_ch):
-#         super(HWD, self).__init__()
-#         # 新增3x3深度卷积（DW），弥补1x1 Conv空间关联不足的问题
-#         # self.Conv = nn.Sequential(
-#         #     nn.Conv2d(in_ch * 4, out_ch, kernel_size=1, stride=1, bias=False),
-#         #     nn.BatchNorm2d(out_ch),
-#         #     nn.SiLU(inplace=True),
-#         #     nn.Conv2d(out_ch, out_ch, kernel_size=3, stride=1, padding=1,groups=out_ch, bias=False),  # DW Conv
-#         #     nn.BatchNorm2d(out_ch),
-#         #     nn.SiLU(inplace=True),
-#         # )
-#         # self.Conv = nn.Sequential(
-#         #     # 步骤 1: Depthwise Conv 3x3
-#         #     # 作用: 给每个频段(LL, LH...)单独增加感受野，让格子之间产生联系
-#         #     # 关键点: groups = in_ch * 4，这使得参数量极小
-#         #     nn.Conv2d(in_ch * 4, in_ch * 4, kernel_size=3, stride=1, padding=1,
-#         #               groups=in_ch * 4, bias=False),
-#         #     nn.BatchNorm2d(in_ch * 4),
-#         #     nn.SiLU(inplace=True),
-#         #
-#         #     # 步骤 2: Pointwise Conv 1x1
-#         #     # 作用: 将 4 个频段的信息融合，并降维到 out_ch
-#         #     # 参数量: (4*in_ch) * out_ch，和你原来的版本一样
-#         #     nn.Conv2d(in_ch * 4, out_ch, kernel_size=1, stride=1, bias=False),
-#         #     nn.BatchNorm2d(out_ch),
-#         #     nn.SiLU(inplace=True),
-#         # )
-#
-#         # 新增可学习权重，让网络自主选择频域特征
-#         # self.weights = nn.Parameter(torch.ones(4))
-#
-#         self.Conv = nn.Sequential(
-#             # nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=1, padding=1, bias=False),
-#             nn.Conv2d(in_ch*4, out_ch, kernel_size=1, stride=1, bias=False),
-#             nn.BatchNorm2d(out_ch),
-#             nn.SiLU(inplace=True),
-#         )
-#     def forward(self,x):
-#         b, c, h, w = x.shape
-#         if h % 2 != 0 or w % 2 != 0:
-#             x = F.pad(x, (0, w % 2, 0, h % 2))
-#             b, c, h, w = x.shape
-#
-#         x_reshaped = x.view(b, c, h // 2, 2, w // 2, 2)
-#         x1 = x_reshaped[:, :, :, 0, :, 0]
-#         x2 = x_reshaped[:, :, :, 0, :, 1]
-#         x3 = x_reshaped[:, :, :, 1, :, 0]
-#         x4 = x_reshaped[:, :, :, 1, :, 1]
-#
-#         # normalized_weights = torch.softmax(self.weights, dim=0)
-#
-#         # 使用归一化后的权重计算各频段
-#         ll = (x1 + x2 + x3 + x4)
-#         # ll = (x1 + x2 + x3 + x4) * normalized_weights[0]
-#         # lh = (x1 - x2 + x3 - x4) * normalized_weights[1]
-#         # hl = (x1 + x2 - x3 - x4) * normalized_weights[2]
-#         # hh = (x1 - x2 - x3 + x4) * normalized_weights[3]
-#
-#         # 加可学习权重
-#         # ll = (x1 + x2 + x3 + x4) * self.weights[0]
-#         # lh = (x1 - x2 + x3 - x4) * self.weights[1]
-#         # hl = (x1 + x2 - x3 - x4) * self.weights[2]
-#         # hh = (x1 - x2 - x3 + x4) * self.weights[3]
-#         # print("weight0:%f"%self.weights[0])
-#         # print(normalized_weights)
-#
-#         # out =  torch.cat([ll,lh, hl, hh], dim=1)
-#         out = self.Conv(ll)
-#         return out
 
 class HWD(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -803,23 +680,6 @@ class HWD(nn.Module):
         self.conv = nn.Conv2d(in_channels * 4, out_channels, 1, 1, 0, bias=False)
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = nn.SiLU()
-
-        # # --- 高级 Trick: 初始化策略 ---
-        # # 我们手动修改卷积层的初始化权重，让 LL (前C个通道) 占主导，
-        # # 让 LH, HL, HH (后3C个通道) 初始权重较小。
-        # # 这样训练初期类似于 AvgPool (稳定)，训练后期网络会慢慢发掘高频特征。
-        #
-        # # 1. 获取权重 [out_c, 4*in_c, 1, 1]
-        # init_weight = self.conv.weight.data
-        #
-        # # 2. 增强 LL (前 1/4 通道)
-        # init_weight[:, :in_channels, :, :] *= 1.5
-        #
-        # # 3. 抑制 LH, HL, HH (后 3/4 通道)
-        # init_weight[:, in_channels:, :, :] *= 0.1
-        #
-        # # 将修改后的权重赋值回去
-        # self.conv.weight.data = init_weight
 
     def forward(self, x):
         # x: [B, C, H, W]

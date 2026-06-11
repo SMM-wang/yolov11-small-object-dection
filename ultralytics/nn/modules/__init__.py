@@ -63,6 +63,7 @@ from .block import (
     MSALCSP,
     SACSP,
     My_Index,
+    RFD,
 )
 from .CFPT import CFPT
 from .SFPN import SFPN,SFM
@@ -82,7 +83,7 @@ from .conv import (
     LightConv,
     RepConv,
     SpatialAttention,
-    HWD
+    HWD,
 )
 from .head import (
     OBB,
@@ -207,6 +208,6 @@ __all__ = (
     "HWD",
     "SFPN",
     "SFM",
-
-    "ASFF"
+    "ASFF",
+    "RFD",
 )
