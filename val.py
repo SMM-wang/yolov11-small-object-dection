@@ -6,7 +6,7 @@ from ultralytics import YOLO,RTDETR
 # model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/MSALCSPv3/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/train3/weights/best.pt")
 # model = YOLO(r"runs/detect/CODrone结果/base/weights/best.pt")
-model = YOLO(r"runs/detect/train/weights/best.pt")
+model = YOLO(r"runs/detect/prun/RSS_YOLO_SDCIoU/weights/best.pt")
 # model = YOLO(r"runs/detect/AT_TOD结果/train5/weights/best.pt")
 
 # model = YOLO(r"C:\workspace\python\ultralytics-main\runs\detect\visdrone2019e结果\IOU\NWF-IoU\weights\best.pt")

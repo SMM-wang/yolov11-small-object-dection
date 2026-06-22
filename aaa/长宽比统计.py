@@ -95,7 +95,7 @@ def analyze_yolo_aspect_ratios(label_dir, percentile_clip=99):
 # ==========================================
 if __name__ == '__main__':
     # 示例路径：假设你的VisDrone训练集标签在 ./datasets/VisDrone/labels/train 下
-    TARGET_LABEL_DIR = '/3240410021/ultralytics-main/aaa/datasets/AI-TOD/train/labels' 
+    TARGET_LABEL_DIR = '/3240410021/ultralytics-main/aaa/datasets/CODrone/train/labels' 
     
     if os.path.exists(TARGET_LABEL_DIR):
         analyze_yolo_aspect_ratios(TARGET_LABEL_DIR)

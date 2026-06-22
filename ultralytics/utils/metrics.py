@@ -23,7 +23,9 @@ OKS_SIGMA = (
     / 10.0
 )
 RLE_WEIGHT = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.2, 1.2, 1.5, 1.5, 1.0, 1.0, 1.2, 1.2, 1.5, 1.5])
-
+# 在文件顶部的空白处定义
+WIOU_EMA_MEAN = None
+DFIOU_EMA_MEAN = None
 
 def bbox_ioa(box1: np.ndarray, box2: np.ndarray, iou: bool = False, eps: float = 1e-7) -> np.ndarray:
     """Calculate the intersection over box2 area given box1 and box2.
@@ -99,31 +101,16 @@ def bbox_iou(
     DIoU: bool = False,
     CIoU: bool = False,
     Inner_iou: bool = False,
-    ratio: float = 0.9,
-    MDPIoU: bool = False,
+    ratio: float = 1.1,
+    MPDIoU: bool = False,
     WIoU: bool = False,
-    SNAIoU: bool = False,
+    SDCIoU: bool = False,   # SD-CIoU
+    delta: float = 0.3,
+    EIoU: bool = False,     # EIoU
     eps: float = 1e-7,
 ) -> torch.Tensor:
-    """Calculate the Intersection over Union (IoU) between bounding boxes.
-
-    This function supports various shapes for `box1` and `box2` as long as the last dimension is 4. For instance, you
-    may pass tensors shaped like (4,), (N, 4), (B, N, 4), or (B, N, 1, 4). Internally, the code will split the last
-    dimension into (x, y, w, h) if `xywh=True`, or (x1, y1, x2, y2) if `xywh=False`.
-
-    Args:
-        box1 (torch.Tensor): A tensor representing one or more bounding boxes, with the last dimension being 4.
-        box2 (torch.Tensor): A tensor representing one or more bounding boxes, with the last dimension being 4.
-        xywh (bool, optional): If True, input boxes are in (x, y, w, h) format. If False, input boxes are in (x1, y1,
-            x2, y2) format.
-        GIoU (bool, optional): If True, calculate Generalized IoU.
-        DIoU (bool, optional): If True, calculate Distance IoU.
-        CIoU (bool, optional): If True, calculate Complete IoU.
-        eps (float, optional): A small value to avoid division by zero.
-
-    Returns:
-        (torch.Tensor): IoU, GIoU, DIoU, or CIoU values depending on the specified flags.
-    """
+    """Calculate the Intersection over Union (IoU) between bounding boxes."""
+    
     # Get the coordinates of bounding boxes
     if xywh:  # transform from xywh to xyxy
         (x1, y1, w1, h1), (x2, y2, w2, h2) = box1.chunk(4, -1), box2.chunk(4, -1)
@@ -146,252 +133,101 @@ def bbox_iou(
 
     # IoU
     iou = inter / union
-    if CIoU or DIoU or GIoU:
-        cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)  # convex (smallest enclosing box) width
+    
+    # ---------------- 基础几何距离特征计算组 ----------------
+    if CIoU or DIoU or GIoU or SDCIoU or EIoU:
+        cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)  # convex width
         ch = b1_y2.maximum(b2_y2) - b1_y1.minimum(b2_y1)  # convex height
-        if CIoU or DIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+        if CIoU or DIoU or SDCIoU or EIoU:
             c2 = cw.pow(2) + ch.pow(2) + eps  # convex diagonal squared
-            rho2 = (
-                (b2_x1 + b2_x2 - b1_x1 - b1_x2).pow(2) + (b2_y1 + b2_y2 - b1_y1 - b1_y2).pow(2)
-            ) / 4  # center dist**2
-            if CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
+            rho2 = ((b2_x1 + b2_x2 - b1_x1 - b1_x2).pow(2) + (b2_y1 + b2_y2 - b1_y1 - b1_y2).pow(2)) / 4  # center dist**2
+            
+            # --- CIoU 与 SD-CIoU 分支 ---
+            if CIoU or SDCIoU:
                 v = (4 / math.pi**2) * ((w2 / h2).atan() - (w1 / h1).atan()).pow(2)
                 with torch.no_grad():
                     alpha = v / (v - iou + (1 + eps))
-                if Inner_iou: # Inner-IoU
-                    iou = inner_iou(box1, box2, xywh=xywh,ratio=ratio)
-                return iou - (rho2 / c2 + v * alpha)  # CIoU
-            if Inner_iou: # Inner-IoU
-                iou = inner_iou(box1, box2, xywh=xywh,ratio=ratio)
-            return iou - rho2 / c2  # DIoU
-        c_area = cw * ch + eps  # convex area
-        if Inner_iou: # Inner-IoU
-            iou = inner_iou(box1, box2, xywh=xywh,ratio=ratio)
-        return iou - (c_area - union) / c_area  # GIoU https://arxiv.org/pdf/1902.09630.pdf
-    elif MDPIoU:
+                            
+                if SDCIoU:
+                    beta = (w2 * h2 * delta) / 1024
+                    beta = torch.where(beta > delta, torch.tensor(delta, device=beta.device), beta)
+                    if Inner_iou: 
+                        iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
+                    return delta - beta + (1 - delta + beta) * (iou - v * alpha) - (1 + delta - beta) * (rho2 / c2)
+                
+                if Inner_iou:
+                    iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
+                return iou - (rho2 / c2 + v * alpha) # 基础 CIoU
+
+            if EIoU:
+                cw2 = cw.pow(2) + eps
+                ch2 = ch.pow(2) + eps
+                w_loss = (w2 - w1).pow(2) / cw2
+                h_loss = (h2 - h1).pow(2) / ch2
+                if Inner_iou:
+                    iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
+                return iou - (rho2 / c2 + w_loss + h_loss)
+
+            # --- DIoU 降级分支 ---
+            if Inner_iou:
+                iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
+            return iou - rho2 / c2  
+
+        # --- GIoU 分支 ---
+        c_area = cw * ch + eps
+        if Inner_iou: 
+            iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
+        return iou - (c_area - union) / c_area  
+
+ 
+    
+    elif MPDIoU:
         d1 = (b2_x1 - b1_x1) ** 2 + (b2_y1 - b1_y1) ** 2
         d2 = (b2_x2 - b1_x2) ** 2 + (b2_y2 - b1_y2) ** 2
-        # mpdiou_hw_pow = 640 ** 2 + 640 ** 2
-        c2 = cw.pow(2) + ch.pow(2) + eps  # convex diagonal squared
-        if Inner_iou:
-            iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
-        # return iou - d1 / mpdiou_hw_pow - d2 / mpdiou_hw_pow  # MPDIoU
-        return iou - d1 / c2 - d2 / c2  # MPDIoU
-    elif WIoU:    
-        delta = 3.0
-        alpha = 1.9
+        cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)
+        ch = b1_y2.maximum(b2_y2) - b1_y1.minimum(b2_y1)
+        c2 = cw.pow(2) + ch.pow(2) + eps
+
+        beta = (w2 * h2 * delta) / 1024
+        beta = torch.where(beta > delta, torch.tensor(delta, device=beta.device), beta)
+        return iou - d1 / c2 - d2 / c2
+
+    elif WIoU:
+        global WIOU_EMA_MEAN
+        eps = 1e-4
+        delta_wiou = 3.0
+        alpha_wiou = 1.9
         b1_cx, b1_cy = (b1_x1 + b1_x2) / 2, (b1_y1 + b1_y2) / 2
         b2_cx, b2_cy = (b2_x1 + b2_x2) / 2, (b2_y1 + b2_y2) / 2
-        # 基础的 IoU 损失
+        
         iou_loss = 1.0 - iou
-        # 4. 计算 WIoU v1 的距离惩罚项 (Distance Penalty)
-        # 计算两个框的最小外接矩形 (Convex Hull) 的宽和高
         cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)
         ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)
-        # 中心点欧氏距离平方
         rho2 = (b1_cx - b2_cx)**2 + (b1_cy - b2_cy)**2
-        # 外接矩形对角线平方
         c2 = cw**2 + ch**2 + eps       
-        # WIoU v1 核心公式: 弱化了良好锚框的惩罚，强化了对普通质量锚框的惩罚
-        # detach() 极为关键: 作者在论文中强调 R_wiou 不需要参与梯度回传
         R_wiou = torch.exp(rho2 / c2).detach() 
-        # 5. WIoU v3 动态非单调聚焦机制 (Dynamic Non-monotonic Focusing Mechanism)
-        # 获取平均误差，实际工程中通常在 Loss 类中维护一个 EMA (指数移动平均) 变量传入
-        iou_mean = iou_loss.detach().mean().clamp(min=eps)            
-        # 计算相对离群度 beta
-        # detach() 也是必须的，因为聚焦系数 r 本身不应该产生妨碍坐标收敛的梯度
-        beta = iou_loss.detach() / iou_mean
-        # 计算非单调系数 r
-        r = beta / (delta * (alpha ** (beta - delta)))
-        # 6. 最终的 WIoUv3 Loss 计算
-        # L_WIoUv3 = r * R_wiou * L_IoU
-        loss_wiou = r * R_wiou * iou_loss
-        return 1.0-loss_wiou
-    elif SNAIoU:
-        eps: float = 1e-4
-        b1_cx, b1_cy = (b1_x1 + b1_x2) / 2, (b1_y1 + b1_y2) / 2
-        b2_cx, b2_cy = (b2_x1 + b2_x2) / 2, (b2_y1 + b2_y2) / 2
-        # 3. 几何重构：Scale-Normalized 距离惩罚 (专治小目标)
-        # 不用外接矩形对角线，而是用 Target(GT) 的尺度作为分母
-        # 逻辑：对于 18px 的目标，偏移 5px 是致命的；对于 100px 的目标，偏移 5px 无所谓。
-        rho_sq = (b1_cx - b2_cx) ** 2 + (b1_cy - b2_cy) ** 2
-        scale_sq = w2 ** 2 + h2 ** 2 + eps 
-        # 指数化距离惩罚，使其在 [0, 1] 之间平滑，避免极端值导致梯度爆炸
-        # distance_penalty = 1.0 - torch.exp(-(rho_sq / scale_sq))
-        # 【安全防线 2】: 限制指数内部的上限，防止偏移过大时引发溢出
-        penalty_term = (rho_sq / scale_sq).clamp(max=20.0)
-        distance_penalty = 1.0 - torch.exp(-penalty_term)    
-        # 基础对齐分数 (Alignment Score)：兼顾重叠度与绝对中心距离
-        alignment_score = iou - distance_penalty # 范围 [-1, 1]
-        # 4. 梯度重构：动态高斯聚焦 (Dynamic Gaussian Focusing)
-        # 替代 Focaler 的粗暴截断 和 WIoU 的复杂 Beta
-        # 将 1 - alignment_score 定义为当前样本的 "错误度 (Error)"
-        error = 1.0 - alignment_score
-        with torch.no_grad():
-            # 动态获取当前 Batch 的平均错误度，作为基准
-            # 这是动态机制的核心：模型自适应当前训练阶段的难度
-            mean_error = error.mean().clamp(min=eps)
-            # 计算相对错误度相对均值的偏离比例
-            # beta = error / mean_error
-            beta = (error / mean_error).clamp(max=10.0)
-            # 使用平滑的高斯非单调函数 (代替 WIoU 复杂的幂函数，且无需两个超参数 alpha/delta)
-            # 逻辑：
-            # beta 约等于 1 (普通难度样本) -> 权重最高
-            # beta 极大 (绝对死样本/噪点) -> exp(-大数) -> 权重降低，防梯度爆炸
-            # beta 极小 (完美拟合样本) -> 权重适中/降低，避免过度优化
-            focus_weight = beta * torch.exp(-(beta - 1.0)**2 / 4.0)
-            # focus_weight = beta * torch.exp(-torch.abs(beta - 1.0) / 2.0)
-        # # 5. 最终 Loss 计算 (统一公式)
-        # # loss_item 维度: [N, 1]
-        loss_item = focus_weight * error
-        return 1.0-loss_item
-
         
+        with torch.no_grad():
+            batch_mean = iou_loss.detach().mean().clamp(min=eps)
+            is_training = box1.requires_grad or box2.requires_grad
+            if 'WIOU_EMA_MEAN' not in globals() or WIOU_EMA_MEAN is None or WIOU_EMA_MEAN.device != batch_mean.device:
+                WIOU_EMA_MEAN = batch_mean.detach()
+            if is_training:
+                momentum = 0.001
+                WIOU_EMA_MEAN = (1.0 - momentum) * WIOU_EMA_MEAN + momentum * batch_mean
+                mean_used = WIOU_EMA_MEAN
+            else:
+                mean_used = WIOU_EMA_MEAN
+            beta_wiou = iou_loss.detach() / mean_used
+            
+        r = beta_wiou / (delta_wiou * (alpha_wiou ** (beta_wiou - delta_wiou)))
+        loss_wiou = r * R_wiou * iou_loss
+        return 1.0 - loss_wiou
+    # 标准 IoU 回退
     if Inner_iou:
         iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
-    return iou  # IoU
-
-
-
-def sn_alignment_loss(pred_bboxes, target_bboxes, weight=None, eps=1e-4):
-    """
-    SNA-IoU (Scale-Normalized Alignment Loss)
-    专为 VisDrone 等微小目标设计的非缝合统一 Loss。
-    
-    返回:
-        loss_iou: 最终的标量 Loss，直接用于反向传播
-    """
-    # 1. 坐标提取
-    b1_x1, b1_y1, b1_x2, b1_y2 = pred_bboxes.chunk(4, -1)
-    b2_x1, b2_y1, b2_x2, b2_y2 = target_bboxes.chunk(4, -1)
-
-    # 计算宽高和中心点
-    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
-    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1 # b2 是 Target
-    b1_cx, b1_cy = (b1_x1 + b1_x2) / 2, (b1_y1 + b1_y2) / 2
-    b2_cx, b2_cy = (b2_x1 + b2_x2) / 2, (b2_y1 + b2_y2) / 2
-
-    # 2. 计算基础 IoU
-    inter = (torch.min(b1_x2, b2_x2) - torch.max(b1_x1, b2_x1)).clamp(0) * \
-            (torch.min(b1_y2, b2_y2) - torch.max(b1_y1, b2_y1)).clamp(0)
-    union = w1 * h1 + w2 * h2 - inter + eps
-    iou = inter / union  # [N, 1]
-
-    # 3. 几何重构：Scale-Normalized 距离惩罚 (专治小目标)
-    # 不用外接矩形对角线，而是用 Target(GT) 的尺度作为分母
-    # 逻辑：对于 18px 的目标，偏移 5px 是致命的；对于 100px 的目标，偏移 5px 无所谓。
-    rho_sq = (b1_cx - b2_cx) ** 2 + (b1_cy - b2_cy) ** 2
-    scale_sq = w2 ** 2 + h2 ** 2 + eps 
-    
-    # 指数化距离惩罚，使其在 [0, 1] 之间平滑，避免极端值导致梯度爆炸
-    # distance_penalty = 1.0 - torch.exp(-(rho_sq / scale_sq))
-    # 【安全防线 2】: 限制指数内部的上限，防止偏移过大时引发溢出
-    penalty_term = (rho_sq / scale_sq).clamp(max=20.0)
-    distance_penalty = 1.0 - torch.exp(-penalty_term)    
-
-    # 基础对齐分数 (Alignment Score)：兼顾重叠度与绝对中心距离
-    alignment_score = iou - distance_penalty # 范围 [-1, 1]
-
-    # 4. 梯度重构：动态高斯聚焦 (Dynamic Gaussian Focusing)
-    # 替代 Focaler 的粗暴截断 和 WIoU 的复杂 Beta
-    # 将 1 - alignment_score 定义为当前样本的 "错误度 (Error)"
-    error = 1.0 - alignment_score
-    
-    with torch.no_grad():
-        # 动态获取当前 Batch 的平均错误度，作为基准
-        # 这是动态机制的核心：模型自适应当前训练阶段的难度
-        mean_error = error.mean().clamp(min=eps)
         
-        # 计算相对错误度相对均值的偏离比例
-        # beta = error / mean_error
-        beta = (error / mean_error).clamp(max=10.0)
-        
-        # 使用平滑的高斯非单调函数 (代替 WIoU 复杂的幂函数，且无需两个超参数 alpha/delta)
-        # 逻辑：
-        # beta 约等于 1 (普通难度样本) -> 权重最高
-        # beta 极大 (绝对死样本/噪点) -> exp(-大数) -> 权重降低，防梯度爆炸
-        # beta 极小 (完美拟合样本) -> 权重适中/降低，避免过度优化
-        focus_weight = beta * torch.exp(-(beta - 1.0)**2 / 4.0)
-        # focus_weight = beta * torch.exp(-torch.abs(beta - 1.0) / 2.0)
-
-    # # 5. 最终 Loss 计算 (统一公式)
-    # # loss_item 维度: [N, 1]
-    loss_item = focus_weight * error
-
-    # 应用分类权重并求和 (保持与你原代码一致的外部逻辑)
-    if weight is not None:
-        loss_item = loss_item * weight
-        
-    return loss_item
-
-
-
-def bbox_wiou_v3(box1, box2, alpha=1.9, delta=3.0, iou_mean=None, eps=1e-4):
-    """
-    计算 WIoUv3 损失的底层函数。
-    
-    参数:
-        box1: 预测框 [N, 4]，格式为 xyxy
-        box2: 真实框 [N, 4]，格式为 xyxy
-        alpha: WIoU 的非单调聚焦系数底数 (默认 1.9)
-        delta: WIoU 的平移因子 (默认 3.0)
-        iou_mean: 历史或当前批次的平均 IoU 误差 (L_iou)。如果为 None，则使用当前 Batch 均值。
-        eps: 防止除零的平滑项
-        
-    返回:
-        loss_wiou: [N, 1] 维度的 WIoUv3 损失值
-    """
-    # 1. 将 xyxy 分离为单独的坐标张量 (保持维度独立)
-    b1_x1, b1_y1, b1_x2, b1_y2 = box1.chunk(4, -1)
-    b2_x1, b2_y1, b2_x2, b2_y2 = box2.chunk(4, -1)
-
-    # 2. 计算宽、高与中心点
-    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
-    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
-    
-    b1_cx, b1_cy = (b1_x1 + b1_x2) / 2, (b1_y1 + b1_y2) / 2
-    b2_cx, b2_cy = (b2_x1 + b2_x2) / 2, (b2_y1 + b2_y2) / 2
-
-    # 3. 计算基础的 Intersection over Union (IoU)
-    inter = (torch.min(b1_x2, b2_x2) - torch.max(b1_x1, b2_x1)).clamp(0) * \
-            (torch.min(b1_y2, b2_y2) - torch.max(b1_y1, b2_y1)).clamp(0)
-    union = w1 * h1 + w2 * h2 - inter + eps
-    iou = inter / union
-    
-    # 基础的 IoU 损失
-    iou_loss = 1.0 - iou
-
-    # 4. 计算 WIoU v1 的距离惩罚项 (Distance Penalty)
-    # 计算两个框的最小外接矩形 (Convex Hull) 的宽和高
-    cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)
-    ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)
-    
-    # 中心点欧氏距离平方
-    rho2 = (b1_cx - b2_cx)**2 + (b1_cy - b2_cy)**2
-    # 外接矩形对角线平方
-    c2 = cw**2 + ch**2 + eps
-    
-    # WIoU v1 核心公式: 弱化了良好锚框的惩罚，强化了对普通质量锚框的惩罚
-    # detach() 极为关键: 作者在论文中强调 R_wiou 不需要参与梯度回传
-    R_wiou = torch.exp(rho2 / c2).detach() 
-
-    # 5. WIoU v3 动态非单调聚焦机制 (Dynamic Non-monotonic Focusing Mechanism)
-    # 获取平均误差，实际工程中通常在 Loss 类中维护一个 EMA (指数移动平均) 变量传入
-    if iou_mean is None:
-        iou_mean = iou_loss.detach().mean().clamp(min=eps)
-        
-    # 计算相对离群度 beta
-    # detach() 也是必须的，因为聚焦系数 r 本身不应该产生妨碍坐标收敛的梯度
-    beta = iou_loss.detach() / iou_mean
-
-    # 计算非单调系数 r
-    r = beta / (delta * (alpha ** (beta - delta)))
-
-    # 6. 最终的 WIoUv3 Loss 计算
-    # L_WIoUv3 = r * R_wiou * L_IoU
-    loss_wiou = r * R_wiou * iou_loss
-
-    return loss_wiou
+    return iou
 
 def mask_iou(mask1: torch.Tensor, mask2: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
     """Calculate masks IoU.
