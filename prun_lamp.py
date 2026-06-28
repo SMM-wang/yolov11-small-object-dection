@@ -14,15 +14,16 @@ from ultralytics.cfg import get_cfg
 # ==========================================
 DEFAULT_IGNORE_KEYWORDS = (
     # "model.24",            # 保护检测头
+    # "model.20.out_convs",  # 保护 SFB 输出卷积 (直接喂入 Detect 分类分支 input)
     "model.10.cv1_right",  # 保护 C2PSA 右路输入 (注意力源头)
     "model.10.m.",         # 保护 C2PSA 内部结构 (多头注意力、FFN等)
 )
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LAMP channel pruning for YOLOv11.")
-    parser.add_argument("--model", type=Path, default=Path("runs/detect/prun/ALL_RFD/weights/best.pt"))
+    parser.add_argument("--model", type=Path, default=Path("runs/detect/prun/RSS_YOLO_SDCIoU/weights/best.pt"))
     parser.add_argument("--save", type=Path, default=None)
-    parser.add_argument("--ratio", type=float, default=0.6, help="全局通道剪枝率")
+    parser.add_argument("--ratio", type=float, default=0.56, help="全局通道剪枝率")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--min-channels", type=int, default=8, help="每层最少保留的通道数")
@@ -54,7 +55,10 @@ def detect_terminal_conv_ids(model: torch.nn.Module) -> set[int]:
     for module in model.modules():
         if module.__class__.__name__ == "Detect":
             for sub_name, sub in module.named_modules():
-                if isinstance(sub, nn.Conv2d) and (sub_name.endswith(".2") or sub_name == "dfl.conv"):
+                if isinstance (sub,nn.Conv2d ) and (sub_name.endswith( ".2" ) or sub_name == "dfl.conv" ):
+                # 保护检测头内的全部 Conv2d，不仅是终端层
+                # 这样依赖图不会把上游的输入通道剪裁自动传播到检测头中间层
+                # if isinstance(sub, nn.Conv2d):
                     ids.add(id(sub))
     return ids
 

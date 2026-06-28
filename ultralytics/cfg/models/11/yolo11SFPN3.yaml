@@ -42,15 +42,12 @@ head:
   - [[-1, 4], 1, Concat, [1]] # 15: cat P4_up + P3
   - [-1, 2, C3k2, [256, False]] # 16: fused P3
 
-  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 17: P3 upsample
-  - [[-1, 2], 1, Concat, [1]] # 18: cat P3_up + P2
-  - [-1, 2, C3k2, [128, False]] # 19: fused P2 -> (Output 1: 160x160)
 
 
-  - [[19, 16, 13], 1, SFPN, [64, 3]] # 20
+  - [[16, 13, 10], 1, SFPN, [64, 3]] # 17
   
-  - [ 20, 1, My_Index, [ 0 ] ]   # 21: 160*160 (128 channels)
-  - [ 20, 1, My_Index, [ 1 ] ]   # 22: 80*80   (256 channels)
-  - [ 20, 1, My_Index, [ 2 ] ]   # 23: 40*40   (512 channels)
+  - [ 17, 1, My_Index, [ 0 ] ]   # 21: 80*80 (128 channels)
+  - [ 17, 1, My_Index, [ 1 ] ]   # 22: 40*40   (256 channels)
+  - [ 17, 1, My_Index, [ 2 ] ]   # 23: 20*20   (512 channels)
 
-  - [[21, 22, 23], 1, Detect, [nc]] # 24: 完美匹配原生检测头输入
+  - [[18, 19, 20], 1, Detect, [nc]] # 24: 完美匹配原生检测头输入

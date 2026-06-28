@@ -149,8 +149,36 @@ if __name__ == '__main__':
     # )
 
 
-    # model2 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
-    # model2.train(
+
+
+    # model9 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP+SFPN.yaml")
+    # model9.train(
+    #     data="my_VisDrone.yaml",
+    #     # data="AI_TOD.yaml", 
+    #     # data="CODrone.yaml",
+    #     epochs=400,
+    #     batch=8,
+    #     # batch=8,
+    #     imgsz=1280,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     # patience=25,  #早停
+    #     cos_lr=True, # 使用余弦退火调度器
+    #     # optimizer="AdamW",  # 使用AdamW优化器
+    #     optimizer="SGD",
+    #     # lr0=0.007,  # 设置初始学习率为0.007
+    #     lr0=0.01,
+    #     lrf=0.01,
+    #     box_iou="SDCIoU",
+    #     warmup_epochs=3,
+    #     cache = True,
+    #     project="/3240410021/ultralytics-main/runs/detect/prun",
+    #     # resume=True,
+    #     name="RSS_YOLO_SDCIoU",
+    # )
+    # model9 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
+    # model9.train(
     #     data="my_VisDrone.yaml",
     #     # data="AI_TOD.yaml", 
     #     # data="CODrone.yaml",
@@ -168,71 +196,44 @@ if __name__ == '__main__':
     #     # lr0=0.007,  # 设置初始学习率为0.007
     #     lr0=0.01,
     #     lrf=0.01,
-    #     box_iou="MPDIoU",
+    #     box_iou="CIoU",
     #     warmup_epochs=3,
     #     cache = True,
     #     project="/3240410021/ultralytics-main/runs/detect/prun",
     #     # resume=True,
-    #     name="MPDIoU",
+    #     name="P2",
     # )
 
-    model9 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP+SFPN.yaml")
-    model9.train(
-        data="my_VisDrone.yaml",
-        # data="AI_TOD.yaml", 
-        # data="CODrone.yaml",
-        epochs=400,
-        batch=8,
-        # batch=8,
-        imgsz=1280,
-        device=0,
-        workers=2,
-        amp=True,
-        # patience=25,  #早停
-        cos_lr=True, # 使用余弦退火调度器
-        # optimizer="AdamW",  # 使用AdamW优化器
-        optimizer="SGD",
-        # lr0=0.007,  # 设置初始学习率为0.007
-        lr0=0.01,
-        lrf=0.01,
-        box_iou="SDCIoU",
-        warmup_epochs=3,
-        cache = True,
-        project="/3240410021/ultralytics-main/runs/detect/prun",
-        # resume=True,
-        name="RSS_YOLO_SDCIoU_-I",
-    )
-
-    # model8 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP+SFPN.yaml")
-    # model8.train(
-    #     data="my_VisDrone.yaml",
-    #     # data="AI_TOD.yaml", 
-    #     # data="CODrone.yaml",
-    #     epochs=400,
-    #     batch=8,
-    #     # batch=8,
-    #     imgsz=640,
-    #     device=0,
-    #     workers=2,
-    #     amp=True,
-    #     # patience=25,  #早停
-    #     cos_lr=True, # 使用余弦退火调度器
-    #     # optimizer="AdamW",  # 使用AdamW优化器
-    #     optimizer="SGD",
-    #     # lr0=0.007,  # 设置初始学习率为0.007
-    #     lr0=0.01,
-    #     lrf=0.01,
-    #     box_iou="DFIoU",
-    #     warmup_epochs=3,
-    #     cache = True,
-    #     project="/3240410021/ultralytics-main/runs/detect/prun",
-    #     # resume=True,
-    #     name="RSS_YOLO_DFIoU",
-    # )
+#     model8 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP+SFPN.yaml")
+#     model8.train(
+#         data="my_VisDrone.yaml",
+#         # data="AI_TOD.yaml", 
+#         # data="CODrone.yaml",
+#         epochs=400,
+#         batch=8,
+#         # batch=8,
+#         imgsz=640,
+#         device=0,
+#         workers=2,
+#         amp=True,
+#         # patience=25,  #早停
+#         cos_lr=True, # 使用余弦退火调度器
+#         # optimizer="AdamW",  # 使用AdamW优化器
+#         optimizer="SGD",
+#         # lr0=0.007,  # 设置初始学习率为0.007
+#         lr0=0.01,
+#         lrf=0.01,
+#         box_iou="SDCIoU",
+#         warmup_epochs=3,
+#         cache = True,
+#         project="/3240410021/ultralytics-main/runs/detect/prun",
+#         # resume=True,
+#         name="RSS_YOLO_SFPN2",
+#     )
 
     
 
-#     model4 = YOLO("ultralytics/cfg/models/11/yolo11SFPN2.yaml")
+#     model4 = YOLO("ultralytics/cfg/models/11/yolo11SFPN3.yaml")
 #     model4.train(
 #         data="my_VisDrone.yaml",
 #         # data="AI_TOD.yaml", 
@@ -256,9 +257,9 @@ if __name__ == '__main__':
 #         cache = True,
 #         project="/3240410021/ultralytics-main/runs/detect/prun",
 #         # resume=True,
-#         name="SFPN2",
+#         name="SFPN3",
 #     )
-    # model5 = YOLO("ultralytics/cfg/models/11/yolo11SFPN3.yaml")
+    # model5 = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
     # model5.train(
     #     data="my_VisDrone.yaml",
     #     # data="AI_TOD.yaml", 
@@ -282,7 +283,7 @@ if __name__ == '__main__':
     #     cache = True,
     #     project="/3240410021/ultralytics-main/runs/detect/prun",
     #     # resume=True,
-    #     name="SFPN3",
+    #     name="yolov11n+160",
     # )
     # model6 = YOLO("ultralytics/cfg/models/11/yolo11SFPN4.yaml")
     # model6.train(
@@ -310,7 +311,33 @@ if __name__ == '__main__':
     #     # resume=True,
     #     name="SFPN4",
     # )
-
+    # model6 = YOLO("ultralytics/cfg/models/11/yolo11SFPN5.yaml")
+    # model6.train(
+    #     data="my_VisDrone.yaml",
+    #     # data="AI_TOD.yaml", 
+    #     # data="CODrone.yaml",
+    #     epochs=400,
+    #     batch=8,
+    #     # batch=8,
+    #     imgsz=640,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     # patience=25,  #早停
+    #     cos_lr=True, # 使用余弦退火调度器
+    #     # optimizer="AdamW",  # 使用AdamW优化器
+    #     optimizer="SGD",
+    #     # lr0=0.007,  # 设置初始学习率为0.007
+    #     lr0=0.01,
+    #     lrf=0.01,
+    #     box_iou="CIoU",
+    #     warmup_epochs=3,
+    #     cache = True,
+    #     project="/3240410021/ultralytics-main/runs/detect/prun",
+    #     # resume=True,
+    #     name="SFPN5",
+    # )
+    
     # model2 = YOLO("ultralytics/cfg/models/11/yolo11SACSP.yaml")
     # model2.train(
     #     data="my_VisDrone.yaml",
@@ -337,32 +364,32 @@ if __name__ == '__main__':
     #     # resume=True,
     #     name="SACSP",
     # )
-    # model3 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP.yaml")
-    # model3.train(
-    #     data="my_VisDrone.yaml",
-    #     # data="AI_TOD.yaml", 
-    #     # data="CODrone.yaml",
-    #     epochs=400,
-    #     batch=8,
-    #     # batch=8,
-    #     imgsz=640,
-    #     device=0,
-    #     workers=2,
-    #     amp=True,
-    #     # patience=25,  #早停
-    #     cos_lr=True, # 使用余弦退火调度器
-    #     # optimizer="AdamW",  # 使用AdamW优化器
-    #     optimizer="SGD",
-    #     # lr0=0.007,  # 设置初始学习率为0.007
-    #     lr0=0.01,
-    #     lrf=0.01,
-    #     box_iou="CIoU",
-    #     warmup_epochs=3,
-    #     cache = True,
-    #     project="/3240410021/ultralytics-main/runs/detect/prun",
-    #     # resume=True,
-    #     name="RFD+SACSP",
-    # )
+    model3 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP+P2.yaml")
+    model3.train(
+        data="my_VisDrone.yaml",
+        # data="AI_TOD.yaml", 
+        # data="CODrone.yaml",
+        epochs=400,
+        batch=8,
+        # batch=8,
+        imgsz=640,
+        device=0,
+        workers=2,
+        amp=True,
+        # patience=25,  #早停
+        cos_lr=True, # 使用余弦退火调度器
+        # optimizer="AdamW",  # 使用AdamW优化器
+        optimizer="SGD",
+        # lr0=0.007,  # 设置初始学习率为0.007
+        lr0=0.01,
+        lrf=0.01,
+        box_iou="CIoU",
+        warmup_epochs=3,
+        cache = True,
+        project="/3240410021/ultralytics-main/runs/detect/prun",
+        # resume=True,
+        name="RFD+SACSP+P2",
+    )
     # model4 = YOLO("ultralytics/cfg/models/11/yolo11RFD.yaml")
     # model4.train(
     #     # data="my_VisDrone.yaml",

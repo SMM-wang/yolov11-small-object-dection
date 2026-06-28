@@ -47,25 +47,97 @@ DetectionTrainer.get_model = custom_get_model
 
 
 if __name__ == '__main__':
-    model1 = YOLO(r"runs/detect/prun/ALL_RFD/weights/last_lamp_pruned_r0.65.pt")   
+    # model1 = YOLO(r"runs/detect/prun/RSS_YOLO_SFPN3/weights/60%.pt")   
+
+    # model1.train(
+    #     data="my_VisDrone.yaml",
+    #     epochs=50,             # 中间恢复阶段不需要 400 轮，交由早停控制
+    #     batch=8,
+    #     patience=10,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
+    #     imgsz=640,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     cache=True,
+    #     optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
+    #     lr0=0.001,
+    #     lrf=0.01,
+    #     cos_lr=True,
+    #     warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
+    #     warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
+    #     box_iou="SDCIoU",
+    #     project='/3240410021/ultralytics-main/runs/detect/prun',
+    #     name='lamp_finetune_step5',
+
+    # )
+    model1 = YOLO(r"runs/detect/prun/RSS_YOLO_SFPN3/weights/head.pt")   
+
     model1.train(
         data="my_VisDrone.yaml",
-        epochs=400,   # 建议先跑 1 个 epoch，确保最后的 fuse 和 val 顺利通过
+        epochs=200,             # 中间恢复阶段不需要 400 轮，交由早停控制
         batch=8,
-        patience=50,
+        patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
         imgsz=640,
         device=0,
         workers=2,
         amp=True,
-        cos_lr=True,
-        optimizer="SGD",
+        cache=True,
+        optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
         lr0=0.001,
         lrf=0.01,
-        box_iou="SNAIoU",
-        warmup_epochs=0,
-        cache=True,
-        # project='prun',
-        # name='prun_fine',
+        cos_lr=True,
+        warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
+        warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
+        box_iou="SDCIoU",
+        project='/3240410021/ultralytics-main/runs/detect/prun',
+        name='head',
+
     )
+    model2 = YOLO(r"runs/detect/prun/RSS_YOLO_SFPN3/weights/-head.pt")   
+
+    model2.train(
+        data="my_VisDrone.yaml",
+        epochs=200,             # 中间恢复阶段不需要 400 轮，交由早停控制
+        batch=8,
+        patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
+        imgsz=640,
+        device=0,
+        workers=2,
+        amp=True,
+        cache=True,
+        optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
+        lr0=0.001,
+        lrf=0.01,
+        cos_lr=True,
+        warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
+        warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
+        box_iou="SDCIoU",
+        project='/3240410021/ultralytics-main/runs/detect/prun',
+        name='-head',
+
+    )
+    # from train_mgd import MGD_YOLO
+    # student_model = MGD_YOLO(r"runs/detect/prun/lamp_finetune_step5/weights/best.pt")
+    
+    # student_model.train(
+    #     data="my_VisDrone.yaml",
+    #     epochs=200,            
+    #     batch=8,
+    #     patience=50,         
+    #     imgsz=640,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     cache=True,
+    #     optimizer="SGD",       
+    #     lr0=0.001,
+    #     lrf=0.01,
+    #     cos_lr=True,
+    #     warmup_epochs=3,       
+    #     warmup_momentum=0.8,  
+    #     box_iou="SDCIoU",
+    #     project='/3240410021/ultralytics-main/runs/detect/prun',
+    #     name='mgd',
+    # )
 
  
