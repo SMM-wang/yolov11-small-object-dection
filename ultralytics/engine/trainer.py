@@ -505,6 +505,12 @@ class BaseTrainer:
             if self.args.val or final_epoch or self.stopper.possible_stop or self.stop:
                 self._clear_memory(threshold=0.5)  # prevent VRAM spike
                 self.metrics, self.fitness = self.validate()
+            
+            # 自定义验证间隔逻辑
+            # val_interval = 5  # 每5个epoch验证一次
+            # if (self.args.val and (epoch % val_interval == 0 or final_epoch)) or self.stopper.possible_stop or self.stop:
+            #     self._clear_memory(threshold=0.5)
+            #     self.metrics, self.fitness = self.validate()
 
             # NaN recovery
             if self._handle_nan_recovery(epoch):

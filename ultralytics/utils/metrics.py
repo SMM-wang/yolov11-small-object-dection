@@ -149,7 +149,7 @@ def bbox_iou(
                     alpha = v / (v - iou + (1 + eps))
                             
                 if SDCIoU:
-                    beta = (w2 * h2 * delta) / 1024
+                    beta = (w2 * h2 * delta) / 1024.0
                     beta = torch.where(beta > delta, torch.tensor(delta, device=beta.device), beta)
                     if Inner_iou: 
                         iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
