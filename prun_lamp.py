@@ -21,9 +21,9 @@ DEFAULT_IGNORE_KEYWORDS = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LAMP channel pruning for YOLOv11.")
-    parser.add_argument("--model", type=Path, default=Path("runs/detect/prun/RSS_YOLO_SDCIoU/weights/best.pt"))
+    parser.add_argument("--model", type=Path, default=Path(r"HSWISH.pt"))
     parser.add_argument("--save", type=Path, default=None)
-    parser.add_argument("--ratio", type=float, default=0.56, help="全局通道剪枝率")
+    parser.add_argument("--ratio", type=float, default=0.655, help="全局通道剪枝率")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--min-channels", type=int, default=8, help="每层最少保留的通道数")
@@ -125,6 +125,22 @@ def fix_depthwise_groups(model: torch.nn.Module) -> int:
                 fixed += 1
     return fixed
 
+
+def deduplicate_shared_activations(model: torch.nn.Module) -> int:
+    activation_types = (nn.ReLU, nn.SiLU, nn.LeakyReLU, nn.Hardswish, nn.Mish)
+    seen: set[int] = set()
+    fixed = 0
+    for parent in model.modules():
+        for name, child in list(parent._modules.items()):
+            if isinstance(child, activation_types):
+                if id(child) in seen:
+                    parent._modules[name] = deepcopy(child)
+                    fixed += 1
+                else:
+                    seen.add(id(child))
+    return fixed
+
+
 def save_checkpoint(ckpt: dict, model: torch.nn.Module, save_path: Path) -> None:
     save_path.parent.mkdir(parents=True, exist_ok=True)
     pruned_model = deepcopy(model).half().cpu()
@@ -147,6 +163,9 @@ def main() -> None:
     ckpt = torch.load(model_path, map_location="cpu", weights_only=False)
     yolo = YOLO(str(model_path))
     model = yolo.model.to(device)
+    shared_acts = deduplicate_shared_activations(model)
+    if shared_acts:
+        print(f"Deduplicated {shared_acts} shared activation modules.")
     ensure_loss_args(model, ckpt)
 
     for p in model.parameters():
@@ -232,6 +251,7 @@ def main() -> None:
     
     yolo_base = YOLO(str(model_path))
     model_base = yolo_base.model.to(device)
+    deduplicate_shared_activations(model_base)
     ensure_loss_args(model_base, ckpt)
     model_base.eval()
     base_ops, base_params = tp.utils.count_ops_and_params(model_base, example_inputs)

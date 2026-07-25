@@ -59,6 +59,7 @@ __all__ = (
     "My_Index",
 
     "RFD",
+    "RFD_LITE",
 
 
 )
@@ -2182,28 +2183,31 @@ class SACSP(nn.Module):
         mid_channels = mid_channels if mid_channels % 2 == 0 else mid_channels + 1
         
         # CSP 通道切分
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, 2 * mid_channels, kernel_size=1, stride=1, padding=0),
-            nn.BatchNorm2d(2 * mid_channels),
-            nn.SiLU()
-        )
+        # self.conv1 = nn.Sequential(
+        #     nn.Conv2d(in_channels, 2 * mid_channels, kernel_size=1, stride=1, padding=0),
+        #     nn.BatchNorm2d(2 * mid_channels),
+        #     nn.SiLU()
+        # )
+        self.conv1 = Conv(in_channels, 2 * mid_channels, k=1, s=1)
         
         # 1. 局部基础分支 (用于提供纯净的 Query)
-        self.local_branch = nn.Sequential(
-            nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.SiLU(),
-        )
+        # self.local_branch = nn.Sequential(
+        #     nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.BatchNorm2d(mid_channels),
+        #     nn.SiLU(),
+        # )
+        self.local_branch = Conv(mid_channels, mid_channels, k=3, s=1, p=1)
 
         scale_ch = mid_channels // 2
         
         # 2. 形状自适应多尺度分支
         # 兜底极小目标分支 (无方向性)
-        self.scale1 = nn.Sequential(
-            nn.Conv2d(mid_channels, scale_ch, kernel_size=1, stride=1),
-            nn.BatchNorm2d(scale_ch),
-            nn.SiLU()
-        )
+        # self.scale1 = nn.Sequential(
+        #     nn.Conv2d(mid_channels, scale_ch, kernel_size=1, stride=1),
+        #     nn.BatchNorm2d(scale_ch),
+        #     nn.SiLU()
+        # )
+        self.scale1 = Conv(mid_channels, scale_ch, k=1, s=1)
         
         # --- 核心：形状自适应特征提取算子 ---
         # 实例化形状路由器
@@ -2242,9 +2246,10 @@ class SACSP(nn.Module):
         )
 
         # 4. 尾部融合输出
-        self.final_conv = nn.Conv2d(2 * mid_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.final_bn = nn.BatchNorm2d(out_channels)
-        self.final_act = nn.SiLU()
+        # self.final_conv = nn.Conv2d(2 * mid_channels, out_channels, kernel_size=1, stride=1, padding=0)
+        # self.final_bn = nn.BatchNorm2d(out_channels)
+        # self.final_act = nn.SiLU()
+        self.final_conv = Conv(2 * mid_channels, out_channels, k=1, s=1)
 
     def forward(self, x):
         # CSP 切分
@@ -2277,7 +2282,8 @@ class SACSP(nn.Module):
 
         # CSP 残差拼接与输出
         out = torch.cat([x1, refined_feat], dim=1)
-        out = self.final_act(self.final_bn(self.final_conv(out)))
+        # out = self.final_act(self.final_bn(self.final_conv(out)))
+        out = self.final_conv(out)
 
         return out
 
@@ -2294,11 +2300,12 @@ class GuidedCrossAttention(nn.Module):
         # interact_in_channels: multi_scale_feat 的通道数 (拼接后的总通道数)
 
         # 1. 通道对齐：将多尺度特征映射到标准通道数
-        self.v_proj = nn.Sequential(
-            nn.Conv2d(interact_in_channels, in_channels, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm2d(in_channels),
-            nn.SiLU()
-        )
+        # self.v_proj = nn.Sequential(
+        #     nn.Conv2d(interact_in_channels, in_channels, kernel_size=1, stride=1, bias=False),
+        #     nn.BatchNorm2d(in_channels),
+        #     nn.SiLU()
+        # )
+        self.v_proj = Conv(interact_in_channels, in_channels, k=1, s=1)
 
         # 2. 空间交叉引导 (Spatial Cross-Guidance)
         # 核心逻辑：用纯净的局部特征来计算空间注意力权重
@@ -2849,10 +2856,10 @@ class SPD(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         # 加上 bias=False，因为后面紧跟了 BatchNorm，偏置不起作用还会占参数
-        self.conv_fusion = nn.Conv2d(in_channels * 4, out_channels, kernel_size=1, stride=1, bias=False)
-        self.batch_norm = nn.BatchNorm2d(out_channels)
-        # 添加了 GELU，保证非线性表达（可选，但通常有助于涨点）
-        self.act = nn.SiLU()
+        # self.conv_fusion = nn.Conv2d(in_channels * 4, out_channels, kernel_size=1, stride=1, bias=False)
+        # self.batch_norm = nn.BatchNorm2d(out_channels)
+        # self.act = nn.SiLU()
+        self.conv_fusion = Conv(in_channels * 4, out_channels, 1, 1)
 
     def forward(self, x):
         x0 = x[:, :, 0::2, 0::2]  # x = [B, C, H/2, W/2]
@@ -2861,7 +2868,7 @@ class SPD(nn.Module):
         x3 = x[:, :, 1::2, 1::2]
         x = torch.cat([x0, x1, x2, x3], dim=1)  # x = [B, 4*C, H/2, W/2]
         x = self.conv_fusion(x)     # x = [B, out_channels, H/2, W/2]
-        x = self.act(self.batch_norm(x))
+        # x = self.act(self.batch_norm(x))
         return x
 
 # Deep feature downsampling C
@@ -2877,19 +2884,21 @@ class RFD(nn.Module):
         self.spd_c = SPD(in_channels=in_channels, out_channels=out_channels)
         
         # 2. 前置特征提取: 严格保持 in_channels (等宽 DWConv，剪枝绝对安全)
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1, groups=in_channels, bias=False),
-            nn.BatchNorm2d(in_channels),
-            nn.SiLU()
-        )
+        # self.conv = nn.Sequential(
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1, groups=in_channels, bias=False),
+        #     nn.BatchNorm2d(in_channels),
+        #     nn.SiLU()
+        # )
+        self.conv = DWConv(in_channels, in_channels, 3, 1)
         
         # 3. DWConvD 下采样分支: 严格保持 in_channels
-        self.conv_x = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=2, padding=1, groups=in_channels, bias=False),
-            nn.BatchNorm2d(in_channels),
-            nn.SiLU()
-        )
-        
+        # self.conv_x = nn.Sequential(
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=2, padding=1, groups=in_channels, bias=False),
+        #     nn.BatchNorm2d(in_channels),
+        #     nn.SiLU()
+        # )
+        self.conv_x = DWConv(in_channels, in_channels, 3, 2)
+
         # 4. MaxD 下采样分支: 严格保持 in_channels
         self.max_m = nn.MaxPool2d(kernel_size=2, stride=2)
         self.batch_norm_m = nn.BatchNorm2d(in_channels)
@@ -2897,11 +2906,12 @@ class RFD(nn.Module):
         # 5. 融合层 (Fusion)
         # 拼接维度计算：cut_c(out) + conv_x(in) + max_m(in) = out_channels + 2 * in_channels
         fusion_in_channels = out_channels + 2 * in_channels
-        self.fusion = nn.Sequential(
-            nn.Conv2d(fusion_in_channels, out_channels, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.SiLU()
-        )
+        # self.fusion = nn.Sequential(
+        #     nn.Conv2d(fusion_in_channels, out_channels, kernel_size=1, stride=1, bias=False),
+        #     nn.BatchNorm2d(out_channels),
+        #     nn.SiLU()
+        # )
+        self.fusion = Conv(fusion_in_channels, out_channels, 1, 1)
 
     def forward(self, x):       
         # 1. 下路：SPD 直接降维并转换通道
@@ -2984,3 +2994,42 @@ class RFD(nn.Module):
 #         out = self.fusion(out)             
         
 #         return out
+
+class RFD_LITE(nn.Module):
+    """
+    UltraLight-RFD (极致轻量+剪枝完美对齐版)
+    等效 SPD 核心，使用 2x2 深度可分离卷积 (无重叠)
+    空间域并行特征提取并做加法融合
+    """
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        
+        # --- 步骤 1: 空间域极致轻量多频段提取 (保持 in_channels 维度，参数极低) ---
+        
+        # 分支 A: 等效 SPD 核心，使用 2x2 深度可分离卷积 (无重叠)
+        # 参数量: in_channels * 4
+        self.branch_spd = nn.Conv2d(in_channels, in_channels, kernel_size=2, stride=2, padding=0, bias=False)
+        
+        # 分支 B: 局部平滑感受野，使用 3x3 深度可分离卷积
+        # 参数量: in_channels * 9
+        self.branch_dw = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=2, padding=1, groups=in_channels, bias=False)
+        
+        # 分支 C: 高频显著特征提取 (无参数)
+        self.branch_max = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # 空间特征融合后的批归一化
+        self.bn_spatial = nn.BatchNorm2d(in_channels)
+        self.act_spatial = nn.SiLU()
+
+        # --- 步骤 2: 跨通道信息交互与升维 ---
+        # 唯一的计算大头，参数量: in_channels * out_channels * 1
+        self.pw_conv = Conv(in_channels, out_channels, k=1, s=1)
+
+    def forward(self, x):
+        # 1. 空间域并行特征提取并做加法融合 (计算量极小，内存完全连续)
+        x_spatial = self.branch_spd(x) + self.branch_dw(x) + self.branch_max(x)
+        x_spatial = self.act_spatial(self.bn_spatial(x_spatial))
+        
+        # 2. 跨通道信息交互与升维
+        # LAMP 剪枝算法只需无脑剪裁这个 pw_conv，绝对不会出现通道对齐崩溃！
+        return self.pw_conv(x_spatial)

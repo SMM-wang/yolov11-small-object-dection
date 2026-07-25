@@ -1,3 +1,6 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
