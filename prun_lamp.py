@@ -21,9 +21,9 @@ DEFAULT_IGNORE_KEYWORDS = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LAMP channel pruning for YOLOv11.")
-    parser.add_argument("--model", type=Path, default=Path(r"HSWISH.pt"))
+    parser.add_argument("--model", type=Path, default=Path(r"C:\workspace\python\yolov11-small-object-dection\runs\detect\train8\weights\last.pt"))
     parser.add_argument("--save", type=Path, default=None)
-    parser.add_argument("--ratio", type=float, default=0.655, help="全局通道剪枝率")
+    parser.add_argument("--ratio", type=float, default=0.66, help="全局通道剪枝率")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--min-channels", type=int, default=8, help="每层最少保留的通道数")
@@ -186,7 +186,15 @@ def main() -> None:
 
     print("\nBuilding Dependency Graph & Aligning Channels...")
     example_inputs = torch.randn(1, 3, args.imgsz, args.imgsz, device=device)
-    dependency_graph = tp.DependencyGraph().build_dependency(model, example_inputs=example_inputs)
+    # 让 Detect 头在依赖图追踪时不 detach one2one 分支，
+    # 否则 torch_pruning 追不到 neck→one2one_cv2 的依赖，导致端对端头输入通道不对齐。
+    from ultralytics.nn.modules.head import Detect
+    prev_pruning_flag = Detect.pruning
+    Detect.pruning = True
+    try:
+        dependency_graph = tp.DependencyGraph().build_dependency(model, example_inputs=example_inputs)
+    finally:
+        Detect.pruning = prev_pruning_flag
 
     original_out_channels = {id(m): m.out_channels for _, m in model.named_modules() if isinstance(m, nn.Conv2d)}
 

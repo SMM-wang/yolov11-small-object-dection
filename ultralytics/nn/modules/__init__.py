@@ -64,6 +64,7 @@ from .block import (
     SACSP,
     My_Index,
     RFD,
+    RepADown,
 )
 from .CFPT import CFPT
 from .SFPN import SFPN,SFM
@@ -210,4 +211,5 @@ __all__ = (
     "SFM",
     "ASFF",
     "RFD",
+    "RepADown",
 )

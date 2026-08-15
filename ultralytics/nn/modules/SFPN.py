@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 from ultralytics.nn.modules.conv import Conv
-from ultralytics.nn.modules.block import RFD,RFD_LITE
+from ultralytics.nn.modules.block import RFD,RepADown
 
 
 class SFM(nn.Module):
@@ -16,9 +16,8 @@ class SFM(nn.Module):
     def __init__(self, channels):
         super(SFM, self).__init__()    
         # self.downsample_conv = Conv(channels, channels, k=3, s=2, p=1)
-        # self.downsample_conv = HWD(channels, channels)
         # self.downsample_conv = RFD(channels, channels)
-        self.downsample_conv = RFD_LITE(channels, channels)
+        self.downsample_conv = RepADown(channels, channels)
         
         self.fusion_conv = Conv(channels, channels, k=3, s=1, p=1)
 

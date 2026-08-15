@@ -55,6 +55,10 @@ class TaskAlignedAssigner(nn.Module):
         self.beta = beta
         self.stride = stride
         self.eps = eps
+        self.return_dup_candidates = False
+        self.dup_topk_idxs = None
+        self.dup_topk_overlaps = None
+        self.dup_winner_idxs = None
 
     @torch.no_grad()
     def forward(self, pd_scores, pd_bboxes, anc_points, gt_labels, gt_bboxes, mask_gt):
@@ -78,6 +82,9 @@ class TaskAlignedAssigner(nn.Module):
         References:
             https://github.com/Nioolek/PPYOLOE_pytorch/blob/master/ppyoloe/assigner/tal_assigner.py
         """
+        self.dup_topk_idxs = None
+        self.dup_topk_overlaps = None
+        self.dup_winner_idxs = None
         self.bs = pd_scores.shape[0]
         self.n_max_boxes = gt_bboxes.shape[1]
         device = gt_bboxes.device
@@ -232,6 +239,8 @@ class TaskAlignedAssigner(nn.Module):
             topk_mask = (topk_metrics.max(-1, keepdim=True)[0] > self.eps).expand_as(topk_idxs)
         # (b, max_num_obj, topk)
         topk_idxs.masked_fill_(~topk_mask, 0)
+        if self.return_dup_candidates:
+            self.dup_topk_idxs = topk_idxs.clone()
 
         # (b, max_num_obj, topk, h*w) -> (b, max_num_obj, h*w)
         count_tensor = torch.zeros(metrics.shape, dtype=torch.int8, device=topk_idxs.device)
@@ -340,8 +349,12 @@ class TaskAlignedAssigner(nn.Module):
             fg_mask = mask_pos.sum(-2)
 
         if self.topk2 != self.topk:
+            if self.return_dup_candidates and self.dup_topk_idxs is not None:
+                self.dup_topk_overlaps = overlaps.gather(-1, self.dup_topk_idxs)
             align_metric = align_metric * mask_pos  # update overlaps
             max_overlaps_idx = torch.topk(align_metric, self.topk2, dim=-1, largest=True).indices  # (b, n_max_boxes)
+            if self.return_dup_candidates:
+                self.dup_winner_idxs = max_overlaps_idx[..., 0]
             topk_idx = torch.zeros(mask_pos.shape, dtype=mask_pos.dtype, device=mask_pos.device)  # update mask_pos
             topk_idx.scatter_(-1, max_overlaps_idx, 1.0)
             mask_pos *= topk_idx

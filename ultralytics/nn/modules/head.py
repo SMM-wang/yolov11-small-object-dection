@@ -74,6 +74,7 @@ class Detect(nn.Module):
     strides = torch.empty(0)  # init
     legacy = False  # backward compatibility for v3/v5/v8/v9 models
     xyxy = False  # xyxy or xywh output
+    pruning = False  # skip detach so torch_pruning can trace the one2one branch
 
     def __init__(self, nc: int = 80, reg_max=16, end2end=False, ch: tuple = ()):
         """Initialize the YOLO detection layer with specified number of classes and channels.
@@ -146,7 +147,7 @@ class Detect(nn.Module):
         # print(f"Detect Input Shapes: {[xi.shape for xi in x]}")  # 打印看看实际通道数是多少
         preds = self.forward_head(x, **self.one2many)
         if self.end2end:
-            x_detach = [xi.detach() for xi in x]
+            x_detach = x if self.pruning else [xi.detach() for xi in x]
             one2one = self.forward_head(x_detach, **self.one2one)
             preds = {"one2many": preds, "one2one": one2one}
         if self.training:

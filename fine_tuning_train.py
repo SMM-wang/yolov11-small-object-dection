@@ -47,8 +47,7 @@ DetectionTrainer.get_model = custom_get_model
 
 
 if __name__ == '__main__':
-    # model1 = YOLO(r"runs/detect/visdrone/RSS_YOLO_SFPN1/weights/fine_2.pt")   
-
+    # model1 = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_REPADOWN_E2E_2DA0.10/weights/last_lamp_prun_1.2.pt")   
     # model1.train(
     #     data="my_VisDrone.yaml",
     #     epochs=50,             # 中间恢复阶段不需要 400 轮，交由早停控制
@@ -66,60 +65,84 @@ if __name__ == '__main__':
     #     warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
     #     warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
     #     box_iou="SDCIoU",
-    #     project='/3240410021/ultralytics-main/runs/detect/visdrone/prun/SFPN1',
-    #     name='2_2',
+    #     project='/3240410021/ultralytics-main/runs/detect/visdrone_final',
+    #     name='RSSYOLO3_LITE_PURNED_1.2',
 
     # )
-    model2 = YOLO(r"runs/detect/visdrone/RSS_YOLO_SFPN1/weights/fine_2.5.pt")   
+    # model2 = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_REPADOWN_E2E_2DA0.10/weights/last_lamp_prun_1.5.pt")   
 
-    model2.train(
+    # model2.train(
+    #     data="my_VisDrone.yaml",
+    #     epochs=300,             # 中间恢复阶段不需要 400 轮，交由早停控制
+    #     batch=8,
+    #     patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
+    #     imgsz=640,
+    #     device=0,
+    #     workers=2,
+    #     amp=True,
+    #     cache=True,
+    #     optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
+    #     lr0=0.001,
+    #     lrf=0.01,
+    #     cos_lr=True,
+    #     warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
+    #     warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
+    #     box_iou="SDCIoU",
+    #     project='/3240410021/ultralytics-main/runs/detect/visdrone_final',
+    #     name='RSSYOLO3_LITE_PURNED_1.5',
+
+    # )
+
+    model3 = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_REPADOWN_E2E_2DA0.10/weights/last_lamp_purn_3.0.pt")   
+
+    model3.train(
         data="my_VisDrone.yaml",
-        epochs=200,             # 中间恢复阶段不需要 400 轮，交由早停控制
+        epochs=400,             # 中间恢复阶段不需要 400 轮，交由早停控制
         batch=8,
-        patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
+        # patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
         imgsz=640,
         device=0,
         workers=2,
         amp=True,
         cache=True,
         optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
-        lr0=0.001,
+        lr0=0.01,
         lrf=0.01,
         cos_lr=True,
         warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
-        warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
+        # warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
         box_iou="SDCIoU",
-        project='/3240410021/ultralytics-main/runs/detect/visdrone/prun/SFPN1',
-        name='fine_2.5',
+        project='/3240410021/ultralytics-main/runs/detect/visdrone_final',
+        name='RSSYOLO3_LITE_PURNED_3.0',
 
     )
 
-    from ultralytics import YOLO
-    from ultralytics import settings
-    settings["tensorboard"]=True
-    model4 = YOLO("ultralytics/cfg/models/11/yolo11SFPN3.yaml")
-    model4.train(
-        # data="my_VisDrone.yaml",
-        data="AI_TOD.yaml", 
-#         data="CODrone.yaml",
-        epochs=400,
-        batch=8,
-        # batch=8,
-        imgsz=640,
-        device=0,
-        workers=2,
-        amp=True,
-        # patience=25,  #早停
-        cos_lr=True, # 使用余弦退火调度器
-        # optimizer="AdamW",  # 使用AdamW优化器
-        optimizer="SGD",
-        # lr0=0.007,  # 设置初始学习率为0.007
-        lr0=0.01,
-        lrf=0.01,
-        box_iou="CIoU",
-        warmup_epochs=3,
-        cache = True,
-        project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
-        # resume=True,
-        name="SFPN3_1",
-    )
+#     from ultralytics import YOLO
+#     from ultralytics import settings
+#     settings["tensorboard"]=True
+#     model4 = YOLO("ultralytics/cfg/models/11/yolo11SFPN3.yaml")
+#     model4.train(
+#         # data="my_VisDrone.yaml",
+#         data="AI_TOD.yaml", 
+# #         data="CODrone.yaml",
+#         epochs=400,
+#         batch=8,
+#         # batch=8,
+#         imgsz=640,
+#         device=0,
+#         workers=2,
+#         amp=True,
+#         # patience=25,  #早停
+#         cos_lr=True, # 使用余弦退火调度器
+#         # optimizer="AdamW",  # 使用AdamW优化器
+#         optimizer="SGD",
+#         # lr0=0.007,  # 设置初始学习率为0.007
+#         lr0=0.01,
+#         lrf=0.01,
+#         box_iou="CIoU",
+#         warmup_epochs=3,
+#         cache = True,
+#         project="/3240410021/ultralytics-main/runs/detect/AI_TOD结果",
+#         # resume=True,
+#         name="SFPN3_1",
+#     )

@@ -396,6 +396,10 @@ class v8DetectionLoss:
         # self.bbox_loss = BboxLoss(m.reg_max).to(device)
         self.bbox_loss = BboxLoss(m.reg_max, iou_type=getattr(h, 'box_iou', 'CIoU')).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
+        self.dup_suppression = False
+        self.dup_suppression_gain = 0.0
+        self.dup_gamma = 2.0
+        self.dup_margin = 0.25
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
         """Preprocess targets by converting to tensor format and scaling coordinates."""
@@ -422,6 +426,57 @@ class v8DetectionLoss:
             # pred_dist = pred_dist.view(b, a, c // 4, 4).transpose(2,3).softmax(3).matmul(self.proj.type(pred_dist.dtype))
             # pred_dist = (pred_dist.view(b, a, c // 4, 4).softmax(2) * self.proj.type(pred_dist.dtype).view(1, 1, -1, 1)).sum(2)
         return dist2bbox(pred_dist, anchor_points, xywh=False)
+
+    def duplicate_suppression_loss(
+        self,
+        pred_scores: torch.Tensor,
+        pred_bboxes: torch.Tensor,
+        gt_labels: torch.Tensor,
+        fg_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        if not self.dup_suppression or self.dup_suppression_gain <= 0:
+            return pred_scores.new_zeros(())
+
+        dup_topk_idxs = getattr(self.assigner, "dup_topk_idxs", None)
+        dup_topk_overlaps = getattr(self.assigner, "dup_topk_overlaps", None)
+        dup_winner_idxs = getattr(self.assigner, "dup_winner_idxs", None)
+        if dup_topk_idxs is None or dup_topk_overlaps is None or dup_winner_idxs is None:
+            return pred_scores.new_zeros(())
+
+        batch_size, _, topk = dup_topk_idxs.shape
+        batch_idx = torch.arange(batch_size, device=pred_scores.device)[:, None, None]
+        gt_cls = gt_labels.squeeze(-1).long().clamp_(0, self.nc - 1)
+        candidate_cls = gt_cls[:, :, None].expand(-1, -1, topk)
+        candidate_idx = dup_topk_idxs.long()
+        # `dup_topk_overlaps > 0` also discards padding GT slots (their anchor-GT overlap
+        # is exactly 0), which the predicted-box IoU below cannot detect on its own since
+        # padding GTs default candidate_idx/winner_idx to anchor 0 (self-IoU = 1).
+        candidate_keep = ~fg_mask.gather(1, candidate_idx.flatten(1)).view_as(candidate_idx)
+        candidate_keep &= dup_topk_overlaps > 0
+
+        # Real predicted-box IoU between each candidate and its GT's winner prediction,
+        # instead of the anchor-vs-GT overlap proxy. Anchors that lie inside GT_A's box but
+        # whose predicted box is actually a reasonable candidate for a nearby GT_B (common in
+        # dense small-object scenes) will not overlap GT_A's winner prediction and are no
+        # longer misclassified as duplicates of GT_A.
+        winner_boxes = pred_bboxes[batch_idx.squeeze(-1), dup_winner_idxs.long()]  # (B, max_gt, 4)
+        candidate_boxes = pred_bboxes[batch_idx, candidate_idx]  # (B, max_gt, topk, 4)
+        pred_iou = bbox_iou(
+            candidate_boxes, winner_boxes.unsqueeze(2).expand_as(candidate_boxes), xywh=False
+        ).squeeze(-1)  # (B, max_gt, topk)
+        candidate_keep &= pred_iou > 0
+
+        candidate_logits = pred_scores[batch_idx, candidate_idx, candidate_cls]
+        with torch.no_grad():
+            candidate_probs = candidate_logits.sigmoid()
+            winner_logits = pred_scores[batch_idx.squeeze(-1), dup_winner_idxs.long(), gt_cls]
+            winner_conf = winner_logits.sigmoid()
+            weights = pred_iou.clamp(0, 1).pow(self.dup_gamma) * winner_conf[:, :, None] * candidate_probs
+            weights = weights.masked_fill(~candidate_keep, 0)
+            target_logits = winner_logits[:, :, None] - self.dup_margin
+
+        dup_loss = F.relu(candidate_logits - target_logits)
+        return (dup_loss * weights).sum() / weights.sum().clamp_min(1.0)
 
     def get_assigned_targets_and_loss(self, preds: dict[str, torch.Tensor], batch: dict[str, Any]) -> tuple:
         """Calculate the sum of the loss for box, cls and dfl multiplied by batch size and return foreground mask and
@@ -460,6 +515,12 @@ class v8DetectionLoss:
 
         # Cls loss
         loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        loss[1] += self.dup_suppression_gain * self.duplicate_suppression_loss(
+            pred_scores,
+            pred_bboxes,
+            gt_labels,
+            fg_mask,
+        )
 
         # Bbox loss
         if fg_mask.sum():
@@ -1170,6 +1231,13 @@ class E2ELoss:
         """Initialize E2ELoss with one-to-many and one-to-one detection losses using the provided model."""
         self.one2many = loss_fn(model, tal_topk=10)
         self.one2one = loss_fn(model, tal_topk=7, tal_topk2=1)
+        self.one2one.dup_suppression = True
+        self.one2one.dup_suppression_target_gain = getattr(model.args, "o2o_dup_cls", 0.05)
+        self.one2one.dup_suppression_gain = 0.0
+        self.one2one.dup_gamma = getattr(model.args, "o2o_dup_gamma", 2.0)
+        self.one2one.dup_margin = getattr(model.args, "o2o_dup_margin", 0.25)
+        self.dup_warmup = getattr(model.args, "o2o_dup_warmup", 5)
+        self.dup_ramp = getattr(model.args, "o2o_dup_ramp", 10)
         self.updates = 0
         self.total = 1.0
         # init gain
@@ -1192,6 +1260,12 @@ class E2ELoss:
         self.updates += 1
         self.o2m = self.decay(self.updates)
         self.o2o = max(self.total - self.o2m, 0)
+        if self.updates <= self.dup_warmup:
+            dup_ratio = 0.0
+        else:
+            dup_ratio = min((self.updates - self.dup_warmup) / max(self.dup_ramp, 1), 1.0)
+        self.one2one.dup_suppression_gain = self.one2one.dup_suppression_target_gain * dup_ratio
+        self.one2one.assigner.return_dup_candidates = self.one2one.dup_suppression_gain > 0
 
     def decay(self, x) -> float:
         """Calculate the decayed weight for one-to-many loss based on the current update step."""

@@ -14,9 +14,9 @@ def generate_channel_contrast_diagram(base_model_path: str, pruned_model_path: s
     base_model = base_yolo.model
 
     # 2. 加载剪枝后的模型 (Prune)
-    # 注意：剪枝后的模型通常保存为普通的 dict，提取 'model' 键即可
+    # 剪枝训练检查点中，实际可用模型通常保存在 ema；没有时再使用 model
     pruned_ckpt = torch.load(pruned_model_path, map_location="cpu", weights_only=False)
-    pruned_model = pruned_ckpt.get("model") or pruned_ckpt
+    pruned_model = pruned_ckpt.get("ema") or pruned_ckpt.get("model")
     
     # 3. 提取所有 Conv2d 层的通道数
     base_channels = {}
@@ -78,7 +78,7 @@ def generate_channel_contrast_diagram(base_model_path: str, pruned_model_path: s
 
 if __name__ == "__main__":
     # ⚠️ 在这里替换成你真实的模型路径
-    BASE_MODEL = "runs/detect/prun/ALL/weights/best.pt" 
-    PRUNED_MODEL = "runs/detect/prun/ALL/weights/best_taylor_pruned_r0.50.pt" 
+    BASE_MODEL = "best0.1.pt" 
+    PRUNED_MODEL = "purn1.7_lamp_pruned_r0.27.pt" 
     
-    generate_channel_contrast_diagram(BASE_MODEL, PRUNED_MODEL, "lamp_channel_contrast.png")
+    generate_channel_contrast_diagram(BASE_MODEL, PRUNED_MODEL, "lamp_channel_contrast2.0.png")

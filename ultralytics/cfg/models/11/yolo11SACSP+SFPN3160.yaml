@@ -13,19 +13,23 @@ scales: # model compound scaling constants, i.e. 'model=yolo11n.yaml' will call 
 #  m: [0.50, 1.00, 512] # summary: 231 layers, 20114688 parameters, 20114672 gradients, 68.5 GFLOPs
 #  l: [1.00, 1.00, 512] # summary: 357 layers, 25372160 parameters, 25372144 gradients, 87.6 GFLOPs
 #  x: [1.00, 1.50, 512] # summary: 357 layers, 56966176 parameters, 56966160 gradients, 196.0 GFLOPs
-
+#MSALCSP summary: 291 layers, 2,683,566 parameters, 2,683,550 gradients, 8.1 GFLOPs
+#MSAL
+# YOLO11n backbone
 backbone:
-  - [-1, 1, RFD_LITE, [64]] # 0-P1/2
-  - [-1, 1, RFD_LITE, [128]] # 1-P2/4
-  - [-1, 1, SACSP, [256,0.5]]
-  - [-1, 1, RFD_LITE, [256]] # 3-P3/8
-  - [-1, 1, SACSP, [512,0.5]]
-  - [-1, 1, RFD_LITE, [512]] # 5-P4/16
-  - [-1, 1, SACSP, [512, 0.5]]
-  - [-1, 1, RFD_LITE, [1024]] # 7-P5/32
-  - [-1, 1, SACSP, [1024, 0.5]]
-  - [-1, 1, SPPF, [1024, 5]] # 9
-  - [-1, 2, C2PSA, [1024]] # 10
+ # [from, repeats, module, args]
+ - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
+ - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
+ - [-1, 1, SACSP, [256,0.5]]
+ - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+ - [-1, 1, SACSP, [512,0.5]]
+ - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+ - [-1, 1, SACSP, [512, 0.5]]
+ - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+ - [-1, 1, SACSP, [1024, 0.5]]
+ - [-1, 1, SPPF, [1024, 5]] # 9
+ - [-1, 2, C2PSA, [1024]] # 10
+
 head:
   # ================= Top-Down Pathway =================
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 11: P5 upsample
@@ -48,3 +52,5 @@ head:
   - [ 20, 1, My_Index, [ 2 ] ]   # 23: 40*40   (512 channels)
 
   - [[21, 22, 23], 1, Detect, [nc]] # 24: 完美匹配原生检测头输入
+
+

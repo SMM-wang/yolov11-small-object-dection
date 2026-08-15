@@ -75,7 +75,8 @@ from ultralytics.nn.modules import (
 
     HWD,
     RFD,
-    RFD_LITE,
+    RepADown,
+    
 )
 
 from ultralytics.nn.modules.block import (MSALCSP,SACSP,My_Index)
@@ -1599,7 +1600,8 @@ def parse_model(d, ch, verbose=True):
             SACSP,
             HWD,
             RFD,
-            RFD_LITE,
+            RepConv,
+            RepADown,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments

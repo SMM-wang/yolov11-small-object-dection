@@ -2,6 +2,31 @@ import cv2
 import os
 
 
+# 与 test.py 中 result.plot() 的默认颜色保持一致，OpenCV 使用 BGR 顺序
+YOLO_COLORS = (
+    (255, 42, 4),
+    (235, 219, 11),
+    (243, 243, 243),
+    (183, 223, 0),
+    (104, 31, 17),
+    (221, 111, 255),
+    (79, 68, 255),
+    (0, 237, 204),
+    (68, 243, 0),
+    (255, 0, 189),
+    (255, 180, 0),
+    (186, 0, 221),
+    (255, 255, 0),
+    (0, 192, 38),
+    (179, 255, 1),
+    (255, 36, 125),
+    (104, 0, 123),
+    (108, 27, 255),
+    (47, 109, 252),
+    (11, 255, 162),
+)
+
+
 def draw_yolo_box(img_path, txt_path, class_names=None, save_dir=None):
     """
     读取图片和YOLO格式的txt，画出真实框，并保存为 "原名_true.jpg"
@@ -47,11 +72,11 @@ def draw_yolo_box(img_path, txt_path, class_names=None, save_dir=None):
         x2 = int((x_center + width / 2) * w)
         y2 = int((y_center + height / 2) * h)
 
-        # 4. 画框
-        color_map = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (255, 255, 0)]
-        color = color_map[class_id % len(color_map)]
+        # 4. 画框，颜色与 test.py 中 result.plot() 保持一致
+        color = YOLO_COLORS[class_id % len(YOLO_COLORS)]
 
-        cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+        cv2.rectangle(image, (x1, y1), (x2, y2), color, 1, lineType=cv2.LINE_AA)
+
 
         # # 5. 写标签
         # if class_names and class_id < len(class_names):
@@ -99,9 +124,8 @@ def draw_yolo_box(img_path, txt_path, class_names=None, save_dir=None):
 # ==========================================
 
 # 1. 输入路径
-img_file = r"./test_picture/drone6.jpg"
-txt_file = r"./test_picture/drone6.txt"
-
+img_file = r"C:\workspace\python\yolov11-small-object-dection\runs\detect\exp75\drone5.jpg"
+txt_file = r"C:\workspace\python\yolov11-small-object-dection\runs\detect\exp75\新建 文本文档.txt"
 # 2. 类别
 # classes = ["broken", "insulator", "pollution-flashover"]
 classes = ["pedestrian", "people", "bicycle", "car", "van", "truck", "tricycle", "awning-tricycle", "bus", "motor"]
@@ -109,7 +133,8 @@ classes = ["pedestrian", "people", "bicycle", "car", "van", "truck", "tricycle",
 
 # 3. 指定保存文件夹 (例如保存到桌面下的 'result' 文件夹)
 # 如果想直接保存在原文件夹，这里填 None 即可
-output_folder = r"./test_picture"
+# output_folder = r"./test_picture"
+output_folder = None
 
 # 运行
 draw_yolo_box(img_file, txt_file, classes, save_dir=output_folder)

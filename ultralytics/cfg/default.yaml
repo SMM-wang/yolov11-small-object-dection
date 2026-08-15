@@ -102,6 +102,11 @@ box: 7.5 # (float) box loss gain
 box_iou: CIoU
 cls: 0.5 # (float) classification loss gain
 dfl: 1.5 # (float) distribution focal loss gain
+o2o_dup_cls: 0.10 # (float) one-to-one duplicate suppression classification gain for end2end models
+o2o_dup_gamma: 2.0 # (float) IoU exponent for reusing assigner duplicate candidate weights
+o2o_dup_margin: 0.25 # (float) logit margin below winner before duplicate candidates are suppressed
+o2o_dup_warmup: 5 # (int) epochs before enabling duplicate suppression
+o2o_dup_ramp: 10 # (int) epochs to ramp duplicate suppression to full strength
 pose: 12.0 # (float) pose loss gain (pose tasks)
 kobj: 1.0 # (float) keypoint objectness loss gain (pose tasks)
 rle: 1.0 # (float) rle loss gain (pose tasks)

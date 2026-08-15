@@ -59,7 +59,7 @@ __all__ = (
     "My_Index",
 
     "RFD",
-    "RFD_LITE",
+    "RepADown",
 
 
 )
@@ -2995,41 +2995,45 @@ class RFD(nn.Module):
         
 #         return out
 
-class RFD_LITE(nn.Module):
+
+
+class RepADown(nn.Module):
     """
-    UltraLight-RFD (极致轻量+剪枝完美对齐版)
-    等效 SPD 核心，使用 2x2 深度可分离卷积 (无重叠)
-    空间域并行特征提取并做加法融合
+    剪枝友好 + 重参数化增强版 ADown (RepADown)
+    - 消除 chunk 操作：双支路独立接收完整特征，彻底打通剪枝依赖图。
+    - 引入 RepConv：将左路的标准 CBS 替换为 RepConv，训练时涨点，部署时无损折叠。
     """
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, c1: int, c2: int):
+        """
+        Args:
+            c1 (int): Input channels.
+            c2 (int): Output channels.
+        """
         super().__init__()
+        self.c = c2 // 2
         
-        # --- 步骤 1: 空间域极致轻量多频段提取 (保持 in_channels 维度，参数极低) ---
+        # --- 核心修改 1：消除 chunk 引发的通道切分 ---
+        # 原版 cv1 和 cv2 只接收 c1 // 2 个通道。
+        # 现在让它们接收完整的 c1 通道，彻底消除 slice 操作，剪枝引擎可完美追踪。
         
-        # 分支 A: 等效 SPD 核心，使用 2x2 深度可分离卷积 (无重叠)
-        # 参数量: in_channels * 4
-        self.branch_spd = nn.Conv2d(in_channels, in_channels, kernel_size=2, stride=2, padding=0, bias=False)
+        # 左路：将标准 3x3 Conv 升级为 RepConv
+        self.cv1 = RepConv(c1, self.c, k=3, s=2, p=1)
         
-        # 分支 B: 局部平滑感受野，使用 3x3 深度可分离卷积
-        # 参数量: in_channels * 9
-        self.branch_dw = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=2, padding=1, groups=in_channels, bias=False)
-        
-        # 分支 C: 高频显著特征提取 (无参数)
-        self.branch_max = nn.MaxPool2d(kernel_size=2, stride=2)
-        
-        # 空间特征融合后的批归一化
-        self.bn_spatial = nn.BatchNorm2d(in_channels)
-        self.act_spatial = nn.SiLU()
+        # 右路：保持 1x1 卷积 (处理 MaxPooling 后的极小目标高频特征)
+        self.cv2 = Conv(c1, self.c, k=1, s=1, p=0)
 
-        # --- 步骤 2: 跨通道信息交互与升维 ---
-        # 唯一的计算大头，参数量: in_channels * out_channels * 1
-        self.pw_conv = Conv(in_channels, out_channels, k=1, s=1)
-
-    def forward(self, x):
-        # 1. 空间域并行特征提取并做加法融合 (计算量极小，内存完全连续)
-        x_spatial = self.branch_spd(x) + self.branch_dw(x) + self.branch_max(x)
-        x_spatial = self.act_spatial(self.bn_spatial(x_spatial))
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass through RepADown layer."""
+        # 1. 预处理：原版 ADown 的均值池化 (对齐特征且平滑背景)
+        x_pre = torch.nn.functional.avg_pool2d(x, 2, 1, 0, False, True)
         
-        # 2. 跨通道信息交互与升维
-        # LAMP 剪枝算法只需无脑剪裁这个 pw_conv，绝对不会出现通道对齐崩溃！
-        return self.pw_conv(x_spatial)
+        # --- 核心修改 2：物理双路独立计算，弃用 chunk ---
+        # 左路：完整通道直接进 RepConv 提取空间下采样特征
+        x1 = self.cv1(x_pre)
+        
+        # 右路：完整通道先做 MaxPool 提取高频响应，再进 1x1 卷积对齐维度
+        x2_pool = torch.nn.functional.max_pool2d(x_pre, 3, 2, 1)
+        x2 = self.cv2(x2_pool)
+        
+        # 3. 在输出端进行 Concat，这是剪枝引擎天然完美支持的汇聚操作
+        return torch.cat((x1, x2), 1)
