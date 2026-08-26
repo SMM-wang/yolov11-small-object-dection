@@ -45,58 +45,30 @@ def custom_get_model(self, cfg=None, weights=None, verbose=True):
 DetectionTrainer.get_model = custom_get_model
 # ===========================================================================
 
+# 1. 定义回调函数
+def validate_interval(trainer):
+    """
+    一个回调函数，用于控制每隔N个epoch进行一次验证。
+    trainer.epoch 从0开始计数。
+    """
+    # 设置验证频率，例如每5个epoch验证一次
+    interval = 40
+    # 判断是否为验证周期 (epoch 0, 4, 9, 14, ...)
+    if trainer.epoch % interval == 0:
+        # 启用验证
+        trainer.args.val = True
+    else:
+        # 禁用验证
+        trainer.args.val = False
 
 if __name__ == '__main__':
-    # model1 = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_REPADOWN_E2E_2DA0.10/weights/last_lamp_prun_1.2.pt")   
-    # model1.train(
-    #     data="my_VisDrone.yaml",
-    #     epochs=50,             # 中间恢复阶段不需要 400 轮，交由早停控制
-    #     batch=8,
-    #     patience=10,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
-    #     imgsz=640,
-    #     device=0,
-    #     workers=2,
-    #     amp=True,
-    #     cache=True,
-    #     optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
-    #     lr0=0.001,
-    #     lrf=0.01,
-    #     cos_lr=True,
-    #     warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
-    #     warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
-    #     box_iou="SDCIoU",
-    #     project='/3240410021/ultralytics-main/runs/detect/visdrone_final',
-    #     name='RSSYOLO3_LITE_PURNED_1.2',
 
-    # )
-    # model2 = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_REPADOWN_E2E_2DA0.10/weights/last_lamp_prun_1.5.pt")   
 
-    # model2.train(
-    #     data="my_VisDrone.yaml",
-    #     epochs=300,             # 中间恢复阶段不需要 400 轮，交由早停控制
-    #     batch=8,
-    #     patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
-    #     imgsz=640,
-    #     device=0,
-    #     workers=2,
-    #     amp=True,
-    #     cache=True,
-    #     optimizer="SGD",       # 如果恢复太慢，强烈建议换成 "AdamW" 试试
-    #     lr0=0.001,
-    #     lrf=0.01,
-    #     cos_lr=True,
-    #     warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
-    #     warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
-    #     box_iou="SDCIoU",
-    #     project='/3240410021/ultralytics-main/runs/detect/visdrone_final',
-    #     name='RSSYOLO3_LITE_PURNED_1.5',
-
-    # )
-
-    model3 = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_REPADOWN_E2E_2DA0.10/weights/last_lamp_purn_3.0.pt")   
-
+    model3 = YOLO(r"runs/detect/CODrone/RSSYOLO_LITE/weights/best_lamp_prun_2.5.pt")   
+    # model3.add_callback('on_train_epoch_end', validate_interval)
     model3.train(
-        data="my_VisDrone.yaml",
+        # data="my_VisDrone.yaml",
+        data="CODrone.yaml",
         epochs=400,             # 中间恢复阶段不需要 400 轮，交由早停控制
         batch=8,
         # patience=50,           # 连续 10 轮不长点直接切断，进入下一轮剪枝
@@ -112,8 +84,8 @@ if __name__ == '__main__':
         warmup_epochs=3,       # 绝对不能为 0，给网络 3 轮时间适应残缺结构
         # warmup_momentum=0.8,   # 降低预热期的动量，防止梯度过激
         box_iou="SDCIoU",
-        project='/3240410021/ultralytics-main/runs/detect/visdrone_final',
-        name='RSSYOLO3_LITE_PURNED_3.0',
+        project='/3240410021/ultralytics-main/runs/detect/CODrone',
+        name='RSSYOLO_LITE_PURNED_2.5',
 
     )
 

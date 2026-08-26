@@ -1,7 +1,7 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-from ultralytics import YOLO
+from ultralytics import YOLO,RTDETR
 import torch
 
 import gc
@@ -55,6 +55,21 @@ def clear_cuda_memory_batch(trainer):
 
 
 
+# 1. 定义回调函数
+def validate_interval(trainer):
+    """
+    一个回调函数，用于控制每隔N个epoch进行一次验证。
+    trainer.epoch 从0开始计数。
+    """
+    # 设置验证频率，例如每5个epoch验证一次
+    interval = 20
+    # 判断是否为验证周期 (epoch 0, 4, 9, 14, ...)
+    if trainer.epoch % interval == 0:
+        # 启用验证
+        trainer.args.val = True
+    else:
+        # 禁用验证
+        trainer.args.val = False
 
 
 
@@ -67,33 +82,8 @@ from ultralytics.utils.loss import v8DetectionLoss
 if __name__ == '__main__':
 
 
-    # model1 = YOLO("ultralytics/cfg/models/11/RSS_YOLO3_REFADOWN.yaml")
-    # model1.train(
-    #     data="my_VisDrone.yaml",
-    #     # data="AI_TOD.yaml", 
-    #     # data="CODrone.yaml",
-    #     epochs=400,
-    #     batch=8,
-    #     # batch=8,
-    #     imgsz=640,
-    #     device=0,
-    #     workers=2,
-    #     amp=True,
-    #     # patience=25,  #早停
-    #     cos_lr=True, # 使用余弦退火调度器
-    #     # optimizer="AdamW",  # 使用AdamW优化器
-    #     optimizer="SGD",
-    #     # lr0=0.007,  # 设置初始学习率为0.007
-    #     lr0=0.01,
-    #     lrf=0.01,
-    #     box_iou="SDCIoU",
-    #     warmup_epochs=3,
-    #     cache = True,
-    #     project="/3240410021/ultralytics-main/runs/detect/visdrone_final",
-    #     # resume=True,
-    #     name="RSSYOLO3_REPADOWN",
-    # )
-    model2 = YOLO("ultralytics/cfg/models/11/RSS_YOLO3_REFADOWN_E2E.yaml")
+    model2 = YOLO("ultralytics/cfg/models/11/yolo11RFD+SACSP+P2.yaml")
+    # model2.add_callback('on_train_epoch_end', validate_interval)
     model2.train(
         data="my_VisDrone.yaml",
         # data="AI_TOD.yaml", 
@@ -117,7 +107,7 @@ if __name__ == '__main__':
         cache = True,
         project="/3240410021/ultralytics-main/runs/detect/visdrone_final",
         # resume=True,
-        name="RSSYOLO3_REPADOWN_E2E_2DA0.1_0.45",
+        name="RSS_YOLO0",
     )
     # model1 = YOLO("ultralytics/cfg/models/11/yolo11SACSP+SFPN3160.yaml")
     # model1.train(

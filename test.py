@@ -52,14 +52,14 @@ def get_next_exp_folder(base_path):
 # model = YOLO(r"../runs/detect/visdrone2019e结果/NECK/YOLO11MSALCSP+ASFF/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/NECK/base/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/ALL/weights/best.pt")
-model = YOLO(r"best2.pt")
+model = YOLO(r"runs/detect/visdrone_final/RSSYOLO3_LITE_PURNED_2.5/weights/best.pt")
 # model = YOLO(r"runs/detect/prun/ALL/weights/best.pt")
 # model = YOLO(r"runs/detect/visdrone2019结果/特征提取模块/SACSP/weights/best.pt")
 # 设置源路径 - 可改为图片路径、视频路径或文件夹路径
-source = "./aaa/test_picture/drone5.jpg"  # 图片示例
+# source = "./aaa/test_picture/drone5.jpg"  # 图片示例
 # source = r"./test_picture"
 # source = r"./aaa/test_picture/0000308_02201_d_0000316.jpg"
-# source = '../che.avi'  # 视频示例
+source = './aaa/che.mp4'  # 视频示例
 # source = "测试图片"  # 文件夹示例
 # source = "0"  # 摄像头示例
 
@@ -111,23 +111,23 @@ for result in results:
     # 获取原始图像
     frame = result.orig_img.copy()
 
-    # 临时打印检测框坐标和置信度
-    boxes = result.boxes
-    if boxes is not None and len(boxes) > 0:
-        xyxy = boxes.xyxy.cpu().numpy()
-        confs = boxes.conf.cpu().numpy()
-        classes = boxes.cls.cpu().numpy().astype(int)
-        names = result.names if hasattr(result, "names") else model.names
-        print(f"\n第 {frame_count + 1} 帧/张检测到 {len(boxes)} 个目标:")
-        for i, (box, conf, cls_id) in enumerate(zip(xyxy, confs, classes), start=1):
-            x1, y1, x2, y2 = box
-            cls_name = names.get(cls_id, str(cls_id)) if isinstance(names, dict) else names[cls_id]
-            print(
-                f"  目标 {i}: class={cls_id}({cls_name}), "
-                f"x1={x1:.2f}, y1={y1:.2f}, x2={x2:.2f}, y2={y2:.2f}, conf={conf:.4f}"
-            )
-    else:
-        print(f"\n第 {frame_count + 1} 帧/张未检测到目标")
+    # # 临时打印检测框坐标和置信度
+    # boxes = result.boxes
+    # if boxes is not None and len(boxes) > 0:
+    #     xyxy = boxes.xyxy.cpu().numpy()
+    #     confs = boxes.conf.cpu().numpy()
+    #     classes = boxes.cls.cpu().numpy().astype(int)
+    #     names = result.names if hasattr(result, "names") else model.names
+    #     print(f"\n第 {frame_count + 1} 帧/张检测到 {len(boxes)} 个目标:")
+    #     for i, (box, conf, cls_id) in enumerate(zip(xyxy, confs, classes), start=1):
+    #         x1, y1, x2, y2 = box
+    #         cls_name = names.get(cls_id, str(cls_id)) if isinstance(names, dict) else names[cls_id]
+    #         print(
+    #             f"  目标 {i}: class={cls_id}({cls_name}), "
+    #             f"x1={x1:.2f}, y1={y1:.2f}, x2={x2:.2f}, y2={y2:.2f}, conf={conf:.4f}"
+    #         )
+    # else:
+    #     print(f"\n第 {frame_count + 1} 帧/张未检测到目标")
 
     # 绘制检测框
     detected_frame = result.plot(
@@ -148,19 +148,19 @@ for result in results:
         else:
             save_path = save_dir / f"{source_name}_{frame_count:04d}.jpg"
 
-    cv2.imwrite(str(save_path), detected_frame)
-    print(f"已保存: {save_path}")
-    frame_count += 1
+    # cv2.imwrite(str(save_path), detected_frame)
+    # print(f"已保存: {save_path}")
+    # frame_count += 1
 
-    # 显示结果
-    cv2.imshow('YOLO 检测结果 (按q退出)', detected_frame)
+    # # 显示结果
+    # cv2.imshow('YOLO 检测结果 (按q退出)', detected_frame)
 
-    # 处理退出条件
-    # 视频流按帧刷新（1ms延迟），图片等待按键
-    wait_time = 1 if is_video else 0
-    key = cv2.waitKey(wait_time)
-    if key == ord('q') or key == 27:  # q键或ESC键退出
-        break
+    # # 处理退出条件
+    # # 视频流按帧刷新（1ms延迟），图片等待按键
+    # wait_time = 1 if is_video else 0
+    # key = cv2.waitKey(wait_time)
+    # if key == ord('q') or key == 27:  # q键或ESC键退出
+    #     break
 
 # 释放资源
 if cap is not None:
